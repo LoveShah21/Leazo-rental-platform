@@ -13,6 +13,8 @@ const logger = require('./utils/logger');
 const { connectDB } = require('./config/database');
 const { connectRedis } = require('./config/redis');
 const { initializeSocketIO } = require('./config/socket');
+const { verifyCloudinaryConfig } = require('./config/cloudinary');
+const { setupRecurringJobs } = require('./config/queue');
 const { errorHandler, notFoundHandler } = require('./middleware/errorHandler');
 const { requestLogger } = require('./middleware/requestLogger');
 
@@ -23,10 +25,11 @@ const availabilityRoutes = require('./routes/availability');
 const bookingRoutes = require('./routes/bookings');
 const paymentRoutes = require('./routes/payments');
 const reviewRoutes = require('./routes/reviews');
-const deliveryRoutes = require('./routes/deliveries');
+const shippingRoutes = require('./routes/shipping');
 const reportRoutes = require('./routes/reports');
 const webhookRoutes = require('./routes/webhooks');
 const adminRoutes = require('./routes/admin');
+const providerRoutes = require('./routes/provider');
 
 const app = express();
 const server = createServer(app);
@@ -57,20 +60,27 @@ app.use(cors({
 }));
 
 // Rate limiting
-const limiter = rateLimit({
-    windowMs: parseInt(process.env.RATE_LIMIT_WINDOW_MS) || 15 * 60 * 1000, // 15 minutes
-    max: parseInt(process.env.RATE_LIMIT_MAX_REQUESTS) || 100,
-    message: 'Too many requests from this IP, please try again later.',
-    standardHeaders: true,
-    legacyHeaders: false,
-});
+const isGlobalRateLimitDisabled = process.env.DISABLE_GLOBAL_RATE_LIMIT === 'true'
+  || process.env.DISABLE_RATE_LIMITING === 'true'
+  || process.env.NODE_ENV === 'development';
+
+const limiter = isGlobalRateLimitDisabled
+  ? (req, res, next) => next()
+  : rateLimit({
+      windowMs: parseInt(process.env.RATE_LIMIT_WINDOW_MS) || 15 * 60 * 1000, // 15 minutes
+      max: parseInt(process.env.RATE_LIMIT_MAX_REQUESTS) || 100,
+      message: 'Too many requests from this IP, please try again later.',
+      standardHeaders: true,
+      legacyHeaders: false,
+    });
 
 app.use(limiter);
 app.use(compression());
 app.use(requestLogger);
 
 // Body parsing middleware
-app.use('/webhooks', express.raw({ type: 'application/json' })); // Raw body for webhooks
+// Raw body for webhooks BEFORE JSON parsing
+app.use('/api/webhooks/cashfree', express.raw({ type: 'application/json' }));
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
@@ -122,10 +132,11 @@ app.use('/api/availability', availabilityRoutes);
 app.use('/api/bookings', bookingRoutes);
 app.use('/api/payments', paymentRoutes);
 app.use('/api/reviews', reviewRoutes);
-app.use('/api/deliveries', deliveryRoutes);
+app.use('/api/shipping', shippingRoutes);
 app.use('/api/reports', reportRoutes);
 app.use('/api/admin', adminRoutes);
-app.use('/webhooks', webhookRoutes);
+app.use('/api/provider', providerRoutes);
+app.use('/api/webhooks', webhookRoutes);
 
 // Error handling
 app.use(notFoundHandler);
@@ -136,68 +147,41 @@ async function startServer() {
     try {
         // Connect to databases
         await connectDB();
-        await connectRedis();
 
-        // Initialize Socket.IO
-        initializeSocketIO(io);
+        // Try to connect to Redis (optional for development)
+        try {
+            await connectRedis();
+            logger.info('✅ Redis connected successfully');
+        } catch (redisError) {
+            logger.warn('⚠️ Redis connection failed - running without Redis/Queue functionality:', redisError.message);
+        }
+
+        // Verify Cloudinary configuration (optional)
+        try {
+            await verifyCloudinaryConfig();
+            logger.info('✅ Cloudinary configuration verified');
+        } catch (cloudinaryError) {
+            logger.warn('⚠️ Cloudinary configuration failed - file uploads may not work:', cloudinaryError.message);
+        }
 
         // Start server
         const PORT = process.env.PORT || 3000;
         server.listen(PORT, () => {
-            logger.info(`🚀 Server running on port ${PORT} in ${process.env.NODE_ENV} mode`);
-            logger.info(`📊 Health check: http://localhost:${PORT}/health`);
-            logger.info(`🔍 Ready check: http://localhost:${PORT}/ready`);
+            logger.info(`🚀 Server running on port ${PORT} in ${process.env.NODE_ENV || 'development'} mode`);
         });
 
-        // Graceful shutdown
-        process.on('SIGTERM', gracefulShutdown);
-        process.on('SIGINT', gracefulShutdown);
+        // Initialize Socket.IO
+        initializeSocketIO(io);
+
+        // Schedule background jobs
+        await setupRecurringJobs();
 
     } catch (error) {
-        logger.error('Failed to start server:', error);
+        logger.error('Server startup error:', error);
         process.exit(1);
     }
 }
 
-async function gracefulShutdown(signal) {
-    logger.info(`Received ${signal}. Starting graceful shutdown...`);
-
-    server.close(async () => {
-        logger.info('HTTP server closed');
-
-        try {
-            // Close database connections
-            const mongoose = require('mongoose');
-            await mongoose.connection.close();
-            logger.info('Database connection closed');
-
-            // Close Redis connection
-            const { closeRedis } = require('./config/redis');
-            await closeRedis();
-            logger.info('Redis connection closed');
-
-            logger.info('Graceful shutdown completed');
-            process.exit(0);
-        } catch (error) {
-            logger.error('Error during graceful shutdown:', error);
-            process.exit(1);
-        }
-    });
-}
-
-// Handle uncaught exceptions
-process.on('uncaughtException', (error) => {
-    logger.error('Uncaught Exception:', error);
-    process.exit(1);
-});
-
-process.on('unhandledRejection', (reason, promise) => {
-    logger.error('Unhandled Rejection at:', promise, 'reason:', reason);
-    process.exit(1);
-});
-
-if (require.main === module) {
-    startServer();
-}
+startServer();
 
 module.exports = { app, server, io };

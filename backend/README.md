@@ -55,21 +55,38 @@ cp .env.example .env
 Edit `.env` with your configuration:
 
 \`\`\`env
+
 # Database
+
 MONGODB_URI=mongodb://localhost:27017/rental-management
 REDIS_URL=redis://localhost:6379
 
 # JWT Secrets (change these!)
+
 JWT_ACCESS_SECRET=your-super-secret-access-key
 JWT_REFRESH_SECRET=your-super-secret-refresh-key
 
 # Payment Gateways
-STRIPE_SECRET_KEY=sk_test_...
-RAZORPAY_KEY_ID=rzp_test_...
+
+STRIPE*SECRET_KEY=sk_test*...
+RAZORPAY*KEY_ID=rzp_test*...
 
 # Shiprocket
+
 SHIPROCKET_EMAIL=your-email@example.com
 SHIPROCKET_PASSWORD=your-password
+
+# Cloudinary
+
+CLOUDINARY_CLOUD_NAME=your-cloud-name
+CLOUDINARY_API_KEY=your-api-key
+CLOUDINARY_API_SECRET=your-api-secret
+
+# Email
+
+SMTP_HOST=smtp.gmail.com
+SMTP_USER=your-email@gmail.com
+SMTP_PASS=your-app-password
 \`\`\`
 
 ### 3. Start Services
@@ -88,11 +105,34 @@ Start MongoDB and Redis locally, then:
 npm run dev
 \`\`\`
 
-### 4. Verify Installation
+### 4. Setup Database
+
+Run the setup script to create admin user and sample data:
+
+\`\`\`bash
+npm run setup
+\`\`\`
+
+This will create:
+
+- Admin user (admin@example.com / admin123)
+- Provider user (provider@example.com / provider123)
+- Sample subscription plans (Free, Basic, Premium)
+- Sample locations (Mumbai, Delhi)
+- Sample products (Camera, Laptop, Tent) owned by the provider
+
+### 5. Verify Installation
 
 Check health endpoint:
 \`\`\`bash
 curl http://localhost:3000/health
+\`\`\`
+
+Test admin login:
+\`\`\`bash
+curl -X POST http://localhost:3000/api/auth/login \\
+-H "Content-Type: application/json" \\
+-d '{"email":"admin@example.com","password":"admin123"}'
 \`\`\`
 
 ## 📚 API Documentation
@@ -104,6 +144,19 @@ curl http://localhost:3000/health
 - `POST /api/auth/refresh` - Refresh access token
 - `POST /api/auth/logout` - User logout
 - `GET /api/auth/me` - Get current user profile
+
+### Provider Endpoints
+
+- `POST /api/provider/register` - Register as a provider
+- `GET /api/provider/profile` - Get provider profile
+- `PUT /api/provider/profile` - Update provider profile
+- `POST /api/provider/products` - Create new product
+- `GET /api/provider/products` - Get provider's products
+- `PUT /api/provider/products/:id` - Update product
+- `DELETE /api/provider/products/:id` - Delete product
+- `GET /api/provider/bookings` - Get provider's bookings
+- `PATCH /api/provider/bookings/:id/status` - Approve/reject bookings
+- `GET /api/provider/dashboard` - Get provider dashboard
 
 ### Product Endpoints
 
@@ -129,27 +182,27 @@ curl http://localhost:3000/health
 
 \`\`\`
 src/
-├── config/          # Configuration files
-│   ├── database.js  # MongoDB connection
-│   ├── redis.js     # Redis connection & cache utils
-│   └── socket.js    # Socket.IO setup
-├── middleware/      # Express middleware
-│   ├── auth.js      # Authentication & authorization
-│   ├── errorHandler.js # Error handling
-│   └── requestLogger.js # Request logging
-├── models/          # Mongoose models
-│   ├── User.js      # User model
-│   ├── Product.js   # Product model
-│   ├── Booking.js   # Booking model
-│   └── Hold.js      # Inventory hold model
-├── routes/          # API routes
-│   ├── auth.js      # Authentication routes
-│   ├── products.js  # Product routes
-│   ├── availability.js # Availability routes
-│   └── ...          # Other route files
-├── utils/           # Utility functions
-│   └── logger.js    # Logging configuration
-└── server.js        # Main application file
+├── config/ # Configuration files
+│ ├── database.js # MongoDB connection
+│ ├── redis.js # Redis connection & cache utils
+│ └── socket.js # Socket.IO setup
+├── middleware/ # Express middleware
+│ ├── auth.js # Authentication & authorization
+│ ├── errorHandler.js # Error handling
+│ └── requestLogger.js # Request logging
+├── models/ # Mongoose models
+│ ├── User.js # User model
+│ ├── Product.js # Product model
+│ ├── Booking.js # Booking model
+│ └── Hold.js # Inventory hold model
+├── routes/ # API routes
+│ ├── auth.js # Authentication routes
+│ ├── products.js # Product routes
+│ ├── availability.js # Availability routes
+│ └── ... # Other route files
+├── utils/ # Utility functions
+│ └── logger.js # Logging configuration
+└── server.js # Main application file
 \`\`\`
 
 ## 🔧 Development
@@ -204,17 +257,20 @@ Ensure all required environment variables are set:
 ### Docker Deployment
 
 \`\`\`bash
+
 # Build image
+
 docker build -t rental-backend .
 
 # Run container
+
 docker run -p 3000:3000 --env-file .env rental-backend
 \`\`\`
 
 ## 🔒 Security Features
 
 - JWT-based authentication with refresh tokens
-- Role-based authorization (customer, staff, manager, admin)
+- Role-based authorization (customer, provider staff, manager, admin)
 - Rate limiting on sensitive endpoints
 - Input validation with Zod
 - SQL injection prevention with Mongoose
@@ -232,6 +288,7 @@ docker run -p 3000:3000 --env-file .env rental-backend
 ### Logging
 
 Structured JSON logging with:
+
 - Request/response logging
 - Error tracking with stack traces
 - Performance monitoring
@@ -254,6 +311,7 @@ This project is licensed under the MIT License.
 ## 🆘 Support
 
 For support and questions:
+
 - Check the documentation
 - Review existing issues
 - Create a new issue with detailed information

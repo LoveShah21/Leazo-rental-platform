@@ -88,7 +88,7 @@ holdSchema.index({ user: 1, createdAt: -1 });
 holdSchema.index({ product: 1, location: 1, startDate: 1, endDate: 1, status: 1 });
 holdSchema.index({ status: 1, expiresAt: 1 });
 holdSchema.index({ sessionId: 1 });
-holdSchema.index({ expiresAt: 1 }); // TTL index
+// expiresAt already has TTL index defined in schema, no need for separate index
 
 // Virtual for hold duration in minutes
 holdSchema.virtual('holdDuration').get(function () {

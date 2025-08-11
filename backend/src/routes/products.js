@@ -1,7 +1,7 @@
 const express = require('express');
 const { z } = require('zod');
 const Product = require('../models/Product');
-const { authenticate, optionalAuth, requireStaff } = require('../middleware/auth');
+const { authenticate, optionalAuth, requireStaff, requireProviderOrStaff } = require('../middleware/auth');
 const { ValidationError, NotFoundError } = require('../middleware/errorHandler');
 const { cache } = require('../config/redis');
 const logger = require('../utils/logger');

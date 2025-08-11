@@ -15,8 +15,7 @@ const connectDB = async () => {
             maxPoolSize: 10,
             serverSelectionTimeoutMS: 5000,
             socketTimeoutMS: 45000,
-            bufferCommands: false,
-            bufferMaxEntries: 0,
+            bufferCommands: false
         };
 
         await mongoose.connect(mongoURI, options);
@@ -37,7 +36,21 @@ const connectDB = async () => {
         });
 
     } catch (error) {
-        logger.error('MongoDB connection failed:', error);
+        logger.error('MongoDB connection failed:', {
+            message: error.message,
+            code: error.code,
+            name: error.name
+        });
+
+        // Log more specific error details
+        if (error.name === 'MongoNetworkError') {
+            logger.error('Network error - check internet connection and MongoDB Atlas whitelist');
+        } else if (error.name === 'MongoServerSelectionError') {
+            logger.error('Server selection error - MongoDB server may be unreachable');
+        } else if (error.name === 'MongoAuthenticationError') {
+            logger.error('Authentication error - check username and password');
+        }
+
         throw error;
     }
 };

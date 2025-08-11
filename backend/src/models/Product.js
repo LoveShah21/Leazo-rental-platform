@@ -308,8 +308,7 @@ const productSchema = new mongoose.Schema({
     toObject: { virtuals: true }
 });
 
-// Indexes for performance
-productSchema.index({ slug: 1 });
+// Indexes for performance (slug already has unique: true, so no need for separate index)
 productSchema.index({ category: 1, status: 1 });
 productSchema.index({ status: 1, isVisible: 1 });
 productSchema.index({ tags: 1 });

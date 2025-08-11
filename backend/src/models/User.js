@@ -34,7 +34,7 @@ const userSchema = new mongoose.Schema({
     },
     role: {
         type: String,
-        enum: ['customer', 'staff', 'manager', 'admin', 'super_admin'],
+        enum: ['customer', 'provider', 'staff', 'manager', 'admin', 'super_admin'],
         default: 'customer'
     },
     isActive: {
@@ -91,6 +91,86 @@ const userSchema = new mongoose.Schema({
         type: String,
         enum: ['active', 'expired', 'cancelled', 'trial'],
         default: null
+    },
+
+    // Provider-specific information
+    providerProfile: {
+        businessName: String,
+        businessType: {
+            type: String,
+            enum: ['individual', 'business', 'company'],
+            default: 'individual'
+        },
+        businessRegistrationNumber: String,
+        taxId: String,
+        website: String,
+        description: String,
+
+        // Verification status
+        isVerified: {
+            type: Boolean,
+            default: false
+        },
+        verificationStatus: {
+            type: String,
+            enum: ['pending', 'in_review', 'verified', 'rejected'],
+            default: 'pending'
+        },
+        verificationDocuments: [{
+            type: String,
+            url: String,
+            uploadedAt: {
+                type: Date,
+                default: Date.now
+            }
+        }],
+        verifiedAt: Date,
+        verifiedBy: {
+            type: mongoose.Schema.Types.ObjectId,
+            ref: 'User'
+        },
+
+        // Business metrics
+        totalProducts: {
+            type: Number,
+            default: 0
+        },
+        totalBookings: {
+            type: Number,
+            default: 0
+        },
+        totalRevenue: {
+            type: Number,
+            default: 0
+        },
+        averageRating: {
+            type: Number,
+            default: 0,
+            min: 0,
+            max: 5
+        },
+
+        // Bank details for payouts
+        bankDetails: {
+            accountHolderName: String,
+            accountNumber: String,
+            bankName: String,
+            ifscCode: String,
+            accountType: {
+                type: String,
+                enum: ['savings', 'current']
+            }
+        },
+
+        // Settings
+        autoApproveBookings: {
+            type: Boolean,
+            default: false
+        },
+        allowInstantBooking: {
+            type: Boolean,
+            default: true
+        }
     },
 
     // Preferences
@@ -170,8 +250,7 @@ const userSchema = new mongoose.Schema({
     }
 });
 
-// Indexes
-userSchema.index({ email: 1 });
+// Indexes (email already has unique: true, so no need for separate index)
 userSchema.index({ role: 1 });
 userSchema.index({ plan: 1 });
 userSchema.index({ createdAt: -1 });

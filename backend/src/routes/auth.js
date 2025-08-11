@@ -5,7 +5,7 @@ const { z } = require('zod');
 const rateLimit = require('express-rate-limit');
 
 const User = require('../models/User');
-const { authenticate, optionalAuth } = require('../middleware/auth');
+const { authenticate, optionalAuth, requireAdmin } = require('../middleware/auth');
 const { ValidationError, UnauthorizedError, NotFoundError } = require('../middleware/errorHandler');
 const logger = require('../utils/logger');
 const { cache } = require('../config/redis');
@@ -13,21 +13,29 @@ const { cache } = require('../config/redis');
 const router = express.Router();
 
 // Rate limiting for auth endpoints
-const authLimiter = rateLimit({
-    windowMs: 15 * 60 * 1000, // 15 minutes
-    max: 5, // 5 attempts per window
-    message: 'Too many authentication attempts, please try again later.',
-    standardHeaders: true,
-    legacyHeaders: false,
-});
+const isAuthRateLimitDisabled = process.env.DISABLE_AUTH_RATE_LIMIT === 'true'
+  || process.env.DISABLE_RATE_LIMITING === 'true'
+  || process.env.NODE_ENV === 'development';
 
-const loginLimiter = rateLimit({
-    windowMs: 15 * 60 * 1000, // 15 minutes
-    max: 10, // 10 login attempts per window
-    message: 'Too many login attempts, please try again later.',
-    standardHeaders: true,
-    legacyHeaders: false,
-});
+const authLimiter = isAuthRateLimitDisabled
+  ? (req, res, next) => next()
+  : rateLimit({
+      windowMs: parseInt(process.env.AUTH_RATE_LIMIT_WINDOW_MS) || 15 * 60 * 1000, // 15 minutes
+      max: parseInt(process.env.AUTH_RATE_LIMIT_MAX) || 5, // 5 attempts per window
+      message: 'Too many authentication attempts, please try again later.',
+      standardHeaders: true,
+      legacyHeaders: false,
+    });
+
+const loginLimiter = isAuthRateLimitDisabled
+  ? (req, res, next) => next()
+  : rateLimit({
+      windowMs: parseInt(process.env.LOGIN_RATE_LIMIT_WINDOW_MS) || 15 * 60 * 1000, // 15 minutes
+      max: parseInt(process.env.LOGIN_RATE_LIMIT_MAX) || 10, // 10 login attempts per window
+      message: 'Too many login attempts, please try again later.',
+      standardHeaders: true,
+      legacyHeaders: false,
+    });
 
 // Validation schemas
 const registerSchema = z.object({
@@ -89,6 +97,60 @@ const validateInput = (schema) => {
 };
 
 // Routes
+
+/**
+ * @route   GET /api/auth/users
+ * @desc    List users (admin only)
+ * @access  Private (admin)
+ */
+router.get('/users', authenticate, requireAdmin, async (req, res, next) => {
+    try {
+        const page = Math.max(parseInt(req.query.page) || 1, 1);
+        const limit = Math.min(Math.max(parseInt(req.query.limit) || 20, 1), 100);
+        const skip = (page - 1) * limit;
+
+        const filter = {};
+        if (req.query.role) {
+            filter.role = req.query.role;
+        }
+        if (typeof req.query.isActive !== 'undefined') {
+            filter.isActive = req.query.isActive === 'true' || req.query.isActive === true;
+        }
+        if (req.query.search) {
+            const searchRegex = new RegExp(req.query.search, 'i');
+            filter.$or = [
+                { email: searchRegex },
+                { firstName: searchRegex },
+                { lastName: searchRegex },
+                { phone: searchRegex },
+            ];
+        }
+
+        const [users, total] = await Promise.all([
+            User.find(filter)
+                .select('-password -twoFactorSecret -emailVerificationToken -passwordResetToken')
+                .sort({ createdAt: -1 })
+                .skip(skip)
+                .limit(limit),
+            User.countDocuments(filter)
+        ]);
+
+        res.json({
+            success: true,
+            data: {
+                users,
+                pagination: {
+                    page,
+                    limit,
+                    total,
+                    totalPages: Math.ceil(total / limit)
+                }
+            }
+        });
+    } catch (error) {
+        next(error);
+    }
+});
 
 /**
  * @route   POST /api/auth/register

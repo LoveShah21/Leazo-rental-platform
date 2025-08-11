@@ -1,0 +1,8 @@
+{
+    "scripts": {
+        "webhook:setup": "node setup-local-webhooks.js",
+        "webhook:test": "node test-cashfree-webhook.js",
+        "ngrok": "ngrok http 3000",
+        "dev:tunnel": "concurrently \"npm run dev\" \"npm run ngrok\""
+    }
+}

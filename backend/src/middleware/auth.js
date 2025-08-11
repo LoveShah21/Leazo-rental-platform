@@ -144,6 +144,12 @@ const requireManager = authorize('admin', 'super_admin', 'manager');
 // Staff authorization (admin, manager, or staff)
 const requireStaff = authorize('admin', 'super_admin', 'manager', 'staff');
 
+// Provider authorization
+const requireProvider = authorize('provider', 'admin', 'super_admin');
+
+// Provider or Staff authorization
+const requireProviderOrStaff = authorize('provider', 'staff', 'manager', 'admin', 'super_admin');
+
 // Check if user owns resource or has admin privileges
 const requireOwnershipOrAdmin = (getResourceUserId) => {
     return async (req, res, next) => {
@@ -248,6 +254,8 @@ module.exports = {
     requireAdmin,
     requireManager,
     requireStaff,
+    requireProvider,
+    requireProviderOrStaff,
     requireOwnershipOrAdmin,
     userRateLimit,
     validateApiKey

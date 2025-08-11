@@ -4,35 +4,22 @@ const path = require('path');
 const isDevelopment = process.env.NODE_ENV === 'development';
 const isTest = process.env.NODE_ENV === 'test';
 
+// Simple logger configuration without transport issues
 const loggerConfig = {
     level: process.env.LOG_LEVEL || (isDevelopment ? 'debug' : 'info'),
-
-    // Pretty print in development
-    ...(isDevelopment && {
-        transport: {
-            target: 'pino-pretty',
-            options: {
-                colorize: true,
-                translateTime: 'SYS:standard',
-                ignore: 'pid,hostname'
-            }
-        }
-    }),
-
-    // Structured logging in production
-    ...(!isDevelopment && !isTest && {
-        formatters: {
-            level: (label) => {
-                return { level: label };
-            }
-        },
-        timestamp: pino.stdTimeFunctions.isoTime
-    }),
 
     // Silent in test environment
     ...(isTest && {
         level: 'silent'
-    })
+    }),
+
+    // Basic formatting for all environments
+    formatters: {
+        level: (label) => {
+            return { level: label };
+        }
+    },
+    timestamp: pino.stdTimeFunctions.isoTime
 };
 
 const logger = pino(loggerConfig);
@@ -93,12 +80,12 @@ const logBusinessEvent = (event, details = {}) => {
     }, `Business event: ${event}`);
 };
 
-module.exports = {
-    ...logger,
-    withCorrelationId,
-    withRequestContext,
-    logError,
-    logPerformance,
-    logSecurityEvent,
-    logBusinessEvent
-};
+module.exports = logger;
+
+// Add helper methods as properties
+module.exports.withCorrelationId = withCorrelationId;
+module.exports.withRequestContext = withRequestContext;
+module.exports.logError = logError;
+module.exports.logPerformance = logPerformance;
+module.exports.logSecurityEvent = logSecurityEvent;
+module.exports.logBusinessEvent = logBusinessEvent;

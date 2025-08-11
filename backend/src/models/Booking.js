@@ -305,8 +305,7 @@ const bookingSchema = new mongoose.Schema({
     toObject: { virtuals: true }
 });
 
-// Indexes for performance
-bookingSchema.index({ bookingNumber: 1 });
+// Indexes for performance (bookingNumber already has unique: true, so no need for separate index)
 bookingSchema.index({ customer: 1, createdAt: -1 });
 bookingSchema.index({ product: 1, startDate: 1, endDate: 1 });
 bookingSchema.index({ location: 1, startDate: 1, endDate: 1 });
