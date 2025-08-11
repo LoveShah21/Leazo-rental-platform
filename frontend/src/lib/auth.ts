@@ -10,6 +10,7 @@ export interface SessionUser {
   firstName?: string;
   lastName?: string;
   role: Role;
+  phone?: string;
   isEmailVerified?: boolean;
 }
 
