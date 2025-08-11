@@ -60,7 +60,7 @@ const featuredProducts = [
 
 export function FeaturedProducts() {
   return (
-    <section className="py-24 bg-muted/30">
+    <section className="py-24 bg-gradient-to-br from-slate-50 via-white to-gray-50/30 dark:from-slate-900 dark:via-slate-800 dark:to-gray-900/10">
       <div className="container mx-auto px-4">
         {/* Header */}
         <div className="text-center mb-16">
@@ -70,12 +70,16 @@ export function FeaturedProducts() {
             viewport={{ once: true }}
             transition={{ duration: 0.6 }}
           >
-            <h2 className="text-3xl lg:text-4xl font-bold mb-4">
+            <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-blue-100 dark:bg-blue-900/30 text-blue-700 dark:text-blue-300 text-sm font-medium mb-6">
+              <Star className="h-4 w-4" />
+              Featured Collection
+            </div>
+            <h2 className="text-4xl lg:text-5xl font-bold mb-6 bg-gradient-to-r from-gray-900 via-gray-800 to-gray-900 dark:from-white dark:via-gray-100 dark:to-white bg-clip-text text-transparent">
               Featured Items
             </h2>
-            <p className="text-xl text-muted-foreground max-w-2xl mx-auto">
+            <p className="text-xl text-muted-foreground max-w-3xl mx-auto leading-relaxed">
               Discover our most popular and highly-rated rental items, carefully
-              curated for quality and sustainability.
+              curated for quality, sustainability, and exceptional user experience.
             </p>
           </motion.div>
         </div>
@@ -92,13 +96,13 @@ export function FeaturedProducts() {
               className="group"
             >
               <Link href={`/products/${product.id}`}>
-                <div className="bg-background rounded-xl border shadow-sm hover:shadow-md transition-all duration-300 overflow-hidden">
+                <div className="bg-white/80 dark:bg-slate-800/80 backdrop-blur-sm rounded-xl border border-gray-200 dark:border-slate-700 shadow-lg hover:shadow-xl transition-all duration-300 overflow-hidden group-hover:scale-105">
                   {/* Image */}
-                  <div className="aspect-[4/3] bg-muted relative overflow-hidden">
+                  <div className="aspect-[4/3] bg-muted dark:bg-slate-700 relative overflow-hidden">
                     <div className="absolute inset-0 bg-gradient-to-br from-primary-100 to-primary-200 dark:from-primary-900/20 dark:to-primary-800/20" />
 
                     {/* Green Score Badge */}
-                    <div className="absolute top-3 left-3 flex items-center gap-1 px-2 py-1 bg-success-500 text-white text-xs font-medium rounded-full">
+                    <div className="absolute top-3 left-3 flex items-center gap-1 px-3 py-1 bg-emerald-500 dark:bg-emerald-600 text-white text-xs font-medium rounded-full shadow-lg">
                       <Leaf className="h-3 w-3" />
                       {product.greenScore}
                     </div>
@@ -106,10 +110,10 @@ export function FeaturedProducts() {
                     {/* Placeholder for actual image */}
                     <div className="absolute inset-0 flex items-center justify-center">
                       <div className="text-center">
-                        <div className="w-12 h-12 mx-auto rounded-full bg-white/20 backdrop-blur-sm flex items-center justify-center mb-2">
-                          <span className="text-lg">📷</span>
+                        <div className="w-16 h-16 mx-auto rounded-full bg-white/20 dark:bg-slate-600/20 backdrop-blur-sm flex items-center justify-center mb-3 shadow-lg">
+                          <span className="text-2xl">📷</span>
                         </div>
-                        <div className="text-sm font-medium text-primary-700 dark:text-primary-300">
+                        <div className="text-sm font-medium text-primary-700 dark:text-primary-300 bg-white/80 dark:bg-slate-800/80 px-3 py-1 rounded-full backdrop-blur-sm">
                           {product.category}
                         </div>
                       </div>
@@ -117,12 +121,12 @@ export function FeaturedProducts() {
                   </div>
 
                   {/* Content */}
-                  <div className="p-4 space-y-3">
+                  <div className="p-6 space-y-4">
                     <div>
-                      <h3 className="font-semibold group-hover:text-primary-600 transition-colors">
+                      <h3 className="font-semibold text-lg text-gray-900 dark:text-white group-hover:text-primary-600 dark:group-hover:text-primary-400 transition-colors">
                         {product.name}
                       </h3>
-                      <div className="flex items-center gap-1 text-sm text-muted-foreground mt-1">
+                      <div className="flex items-center gap-1 text-sm text-muted-foreground dark:text-slate-400 mt-1">
                         <MapPin className="h-3 w-3" />
                         {product.location}
                       </div>
@@ -131,27 +135,27 @@ export function FeaturedProducts() {
                     {/* Rating */}
                     <div className="flex items-center gap-2">
                       <div className="flex items-center gap-1">
-                        <Star className="h-4 w-4 fill-warning-400 text-warning-400" />
-                        <span className="text-sm font-medium">
+                        <Star className="h-4 w-4 fill-yellow-400 text-yellow-400" />
+                        <span className="text-sm font-medium text-gray-900 dark:text-white">
                           {product.rating}
                         </span>
                       </div>
-                      <span className="text-sm text-muted-foreground">
+                      <span className="text-sm text-muted-foreground dark:text-slate-400">
                         ({product.reviewCount} reviews)
                       </span>
                     </div>
 
                     {/* Pricing */}
-                    <div className="space-y-1">
+                    <div className="space-y-2">
                       <div className="flex items-baseline gap-2">
-                        <span className="text-lg font-bold">
+                        <span className="text-xl font-bold text-gray-900 dark:text-white">
                           {formatCurrency(product.pricing.day)}
                         </span>
-                        <span className="text-sm text-muted-foreground">
+                        <span className="text-sm text-muted-foreground dark:text-slate-400">
                           /day
                         </span>
                       </div>
-                      <div className="text-sm text-muted-foreground">
+                      <div className="text-sm text-muted-foreground dark:text-slate-400">
                         {formatCurrency(product.pricing.week)}/week •{" "}
                         {formatCurrency(product.deposit)} deposit
                       </div>
@@ -171,8 +175,11 @@ export function FeaturedProducts() {
           transition={{ duration: 0.6, delay: 0.4 }}
           className="text-center"
         >
-          <Button size="lg" asChild>
-            <Link href="/catalog">View All Items</Link>
+          <Button size="lg" className="shadow-lg" asChild>
+            <Link href="/catalog">
+              View All Items
+              <Star className="h-4 w-4 ml-2" />
+            </Link>
           </Button>
         </motion.div>
       </div>

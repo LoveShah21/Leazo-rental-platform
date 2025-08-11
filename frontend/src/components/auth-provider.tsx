@@ -1,7 +1,7 @@
 "use client";
 
 import React, { createContext, useContext, useEffect, useMemo, useState } from "react";
-import { me, login as apiLogin, logout as apiLogout, register as apiRegister, type SessionUser, type Role } from "@/lib/auth";
+import { me, login as apiLogin, logout as apiLogout, register as apiRegister, type SessionUser, type Role, setDemoRole, getDemoRole } from "@/lib/auth";
 import { useRouter } from "next/navigation";
 
 interface AuthContextValue {
@@ -11,6 +11,7 @@ interface AuthContextValue {
   logout: () => Promise<void>;
   register: (payload: { email: string; password: string; firstName: string; lastName: string }) => Promise<void>;
   hasRole: (...roles: Role[]) => boolean;
+  setDemo: (role: Role | null) => void;
 }
 
 const AuthContext = createContext<AuthContextValue | undefined>(undefined);
@@ -53,7 +54,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     logout: async () => {
       await apiLogout();
       setUser(null);
-      router.push("/login");
+      // Only redirect to login if not on homepage
+      if (typeof window !== "undefined" && window.location.pathname !== "/") {
+        router.push("/");
+      }
     },
     register: async (payload) => {
       setLoading(true);
@@ -67,6 +71,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     hasRole: (...roles: Role[]) => {
       if (!user) return false;
       return roles.includes(user.role);
+    },
+    setDemo: (role) => {
+      setDemoRole(role);
+      // force a re-evaluation by calling me() again
+      setLoading(true);
+      me().then((u) => setUser(u)).finally(() => setLoading(false));
     },
   }), [user, loading, router]);
 

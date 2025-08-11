@@ -3,15 +3,16 @@ import { Inter } from "next/font/google";
 import "./globals.css";
 import { Providers } from "@/components/providers";
 import { Toaster } from "@/components/ui/toaster";
+import { AuthProvider } from "@/components/auth-provider";
 
 const inter = Inter({ subsets: ["latin"] });
 
 export const metadata: Metadata = {
-  title: "RentHub - Premium Rental Platform",
+  title: "Leazo - Premium Rental Platform",
   description:
     "Discover and rent premium items with ease. Sustainable, convenient, and affordable.",
   keywords: ["rental", "sharing economy", "sustainability", "premium items"],
-  authors: [{ name: "RentHub Team" }],
+  authors: [{ name: "Leazo Team" }],
   viewport: "width=device-width, initial-scale=1",
 };
 
@@ -24,8 +25,10 @@ export default function RootLayout({
     <html lang="en" suppressHydrationWarning>
       <body className={inter.className}>
         <Providers>
-          {children}
-          <Toaster />
+          <AuthProvider>
+            {children}
+            <Toaster />
+          </AuthProvider>
         </Providers>
       </body>
     </html>
