@@ -9,6 +9,7 @@ const Payment = require('../models/Payment');
 const Review = require('../models/Review');
 const Location = require('../models/Location');
 const { authenticate, requireAdmin, requireManager, requireStaff } = require('../middleware/auth');
+const { cache } = require('../config/redis');
 const { ValidationError, NotFoundError } = require('../middleware/errorHandler');
 const { createUploadMiddleware } = require('../config/cloudinary');
 const shippingService = require('../services/shippingService');
@@ -301,6 +302,13 @@ router.patch('/users/:id', requireAdmin, async (req, res, next) => {
 
         if (!user) {
             throw new NotFoundError('User not found');
+        }
+
+        // Invalidate cached user to prevent stale role/flags causing authorization bugs
+        try {
+            await cache.del(`user:${req.params.id}`);
+        } catch (e) {
+            logger.warn({ userId: req.params.id, error: e?.message }, 'Failed to invalidate user cache after update');
         }
 
         logger.info(`User updated by admin: ${req.params.id} by ${req.user.id}`);

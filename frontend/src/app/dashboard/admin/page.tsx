@@ -7,58 +7,65 @@ import { PageHeader } from "@/components/layout/page-header";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { 
-  Users, 
-  Package, 
-  BarChart3, 
-  Shield, 
-  Activity, 
-  AlertTriangle,
-  CheckCircle,
-  Clock,
-  DollarSign,
-  Globe,
-  UserCheck,
-  Flag,
-  Settings,
-  Eye
-} from "lucide-react";
+import { Users, Package, BarChart3, Shield, Activity, AlertTriangle, CheckCircle, Clock, DollarSign, Globe, UserCheck, Flag, Settings, Eye } from "lucide-react";
+import { useEffect, useMemo, useState } from "react";
+import { fetchAdminDashboard } from "@/lib/admin";
 
 export default function AdminDashboard() {
   const { setDemo } = useAuth();
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [period] = useState("30d");
+  const [data, setData] = useState<Awaited<ReturnType<typeof fetchAdminDashboard>> | null>(null);
 
-  // Mock data for admin dashboard stats
-  const stats = {
-    totalUsers: 2847,
-    totalProviders: 156,
-    totalProducts: 1247,
-    systemHealth: 98.2,
-    platformRevenue: 125450,
-    pendingReviews: 23
-  };
+  useEffect(() => {
+    let active = true;
+    (async () => {
+      try {
+        setLoading(true);
+        const d = await fetchAdminDashboard(period);
+        if (!active) return;
+        setData(d);
+        setError(null);
+      } catch (e: any) {
+        if (!active) return;
+        setError(e?.message || "Failed to load dashboard");
+      } finally {
+        if (active) setLoading(false);
+      }
+    })();
+    return () => {
+      active = false;
+    };
+  }, [period]);
 
-  const criticalAlerts = [
-    { type: "security", message: "Unusual login activity detected", severity: "high", time: "5 minutes ago" },
-    { type: "system", message: "Server response time increased", severity: "medium", time: "2 hours ago" },
-    { type: "content", message: "3 products flagged for review", severity: "medium", time: "4 hours ago" }
-  ];
+  const stats = useMemo(() => ({
+    totalUsers: data?.users.total ?? 0,
+    totalProviders: data?.users.byRole?.find(r => r._id === "provider")?.count ?? 0,
+    totalProducts: data?.products.total ?? 0,
+    systemHealth: 99.9,
+    platformRevenue: data?.bookings.totalRevenue ?? 0,
+    pendingReviews: 0,
+  }), [data]);
 
-  const recentActivity = [
-    { type: "user", message: "New provider account created", time: "15 minutes ago", status: "success" },
-    { type: "product", message: "Product listing approved", time: "30 minutes ago", status: "completed" },
-    { type: "system", message: "Daily backup completed", time: "1 hour ago", status: "success" },
-    { type: "moderation", message: "User account suspended", time: "2 hours ago", status: "warning" }
-  ];
+  const criticalAlerts: { type: string; message: string; severity: "high" | "medium" | "low"; time: string }[] = [];
+
+  const recentActivity = (data?.recent.bookings || []).map((b: any) => ({
+    type: "booking",
+    message: `Booking ${b.bookingNumber || b._id} by ${b?.customer?.firstName || "User"}`,
+    time: b?.createdAt ? new Date(b.createdAt).toLocaleString() : "",
+    status: "success" as const,
+  })).slice(0, 4);
 
   const systemMetrics = [
-    { name: "Active Users (24h)", value: "1,247", change: "+8.5%", positive: true },
-    { name: "New Registrations", value: "34", change: "+12%", positive: true },
-    { name: "Platform Uptime", value: "99.9%", change: "0%", positive: true },
-    { name: "Support Tickets", value: "12", change: "-15%", positive: true }
+    { name: "Total Bookings", value: String(data?.bookings.totalBookings ?? 0), change: "", positive: true },
+    { name: "Total Revenue", value: `$${(data?.bookings.totalRevenue ?? 0).toLocaleString()}`, change: "", positive: true },
+    { name: "Active Users", value: String(data?.users.active ?? 0), change: "", positive: true },
+    { name: "Active Products", value: String(data?.products.active ?? 0), change: "", positive: true }
   ];
 
   return (
-    <Protected roles={["admin", "super_admin"]}>
+    <Protected roles={["admin", "super_admin", "manager", "staff"]}>
       <DashboardLayout>
         <div className="container mx-auto p-6 space-y-8">
           <PageHeader
@@ -123,6 +130,18 @@ export default function AdminDashboard() {
                   ))}
                 </div>
               </CardContent>
+            </Card>
+          )}
+
+          {/* Error/Loading */}
+          {error && (
+            <Card className="border-0 shadow-lg bg-red-50 border-l-4 border-l-red-500">
+              <CardContent className="p-4 text-red-700">{error}</CardContent>
+            </Card>
+          )}
+          {loading && (
+            <Card className="border-0 shadow-lg">
+              <CardContent className="p-4">Loading...</CardContent>
             </Card>
           )}
 

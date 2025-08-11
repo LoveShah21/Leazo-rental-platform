@@ -7,44 +7,84 @@ import { PageHeader } from "@/components/layout/page-header";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { 
-  Package, 
-  Calendar, 
-  BarChart3, 
-  DollarSign, 
-  Star, 
+import {
+  Package,
+  Calendar,
+  BarChart3,
+  DollarSign,
+  Star,
   TrendingUp,
   Users,
   Clock,
   CheckCircle,
   AlertCircle,
-  Plus
+  Plus,
+  Eye
 } from "lucide-react";
+import { useEffect, useMemo, useState } from "react";
+import { fetchProviderDashboard, fetchProviderProfile, type ProviderDashboard } from "@/lib/provider";
 
 export default function ProviderDashboard() {
   const { setDemo } = useAuth();
   const { user } = useAuth();
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [dashboard, setDashboard] = useState<ProviderDashboard | null>(null);
+  const [avgRating, setAvgRating] = useState<number>(0);
 
-  // Mock data for provider dashboard stats
-  const stats = {
-    totalProducts: 12,
-    activeBookings: 8,
-    totalEarnings: 3420,
-    avgRating: 4.7,
-    monthlyGrowth: 15.3
-  };
+  useEffect(() => {
+    let active = true;
+    (async () => {
+      try {
+        setLoading(true);
+        const [dash, profile] = await Promise.all([
+          fetchProviderDashboard("30d").then((d) => d.dashboard),
+          fetchProviderProfile().catch(() => null),
+        ]);
+        if (!active) return;
+        setDashboard(dash);
+        const rating = (profile?.user?.providerProfile?.averageRating as number | undefined) ?? 0;
+        setAvgRating(rating);
+      } catch (e: any) {
+        if (!active) return;
+        setError(e?.message || "Failed to load dashboard");
+      } finally {
+        if (active) setLoading(false);
+      }
+    })();
+    return () => {
+      active = false;
+    };
+  }, []);
 
-  const recentActivity = [
-    { type: "booking", message: "New booking for Camera Kit", time: "30 minutes ago", status: "pending" },
-    { type: "payment", message: "Payment received: $200", time: "2 hours ago", status: "success" },
-    { type: "review", message: "New 5-star review received", time: "1 day ago", status: "success" },
-    { type: "product", message: "Power Tools listing approved", time: "2 days ago", status: "completed" }
-  ];
+  const stats = useMemo(() => {
+    if (!dashboard) return null;
+    const statuses = dashboard.bookings.statusBreakdown || [];
+    const activeStatuses = new Set(["confirmed", "approved", "picked_up", "in_use"]);
+    const activeBookings = statuses.filter((s) => activeStatuses.has(s)).length;
+    return {
+      totalProducts: dashboard.products.total || 0,
+      activeBookings,
+      totalEarnings: dashboard.bookings.totalRevenue || 0,
+      avgRating: Number(avgRating?.toFixed?.(1) ?? 0),
+      totalViews: dashboard.products.totalViews || 0,
+    };
+  }, [dashboard, avgRating]);
+
+  const recentActivity = useMemo(() => {
+    if (!dashboard) return [] as Array<{ key: string; message: string; time: string; status: "success" | "completed" | "pending" }>;
+    return (dashboard.recentBookings || []).map((b) => ({
+      key: b._id,
+      message: `Booking ${b.bookingNumber} - ${b.product?.name ?? "Product"}`,
+      time: new Date(b.startDate).toLocaleDateString(),
+      status: ["completed", "returned"].includes(b.status) ? "completed" : (b.status === "confirmed" ? "success" : "pending"),
+    }));
+  }, [dashboard]);
 
   const quickActions = [
     { title: "Add New Product", description: "List a new item for rent", href: "/dashboard/provider/products", action: true },
-    { title: "Pending Bookings", description: "3 bookings need approval", href: "/dashboard/provider/bookings", urgent: true },
-    { title: "Update Pricing", description: "Optimize your rental rates", href: "/dashboard/provider/products", action: false }
+    { title: "Manage Bookings", description: "Review and update bookings", href: "/dashboard/provider/bookings", urgent: false },
+    { title: "View Analytics", description: "Track performance insights", href: "/dashboard/provider/reports", action: false }
   ];
 
   return (
@@ -55,7 +95,13 @@ export default function ProviderDashboard() {
             title={`Provider Dashboard`}
             subtitle={`Welcome back, ${user?.firstName || user?.email?.split('@')[0] || 'Provider'}! Manage your rental business effectively`}
           />
-          
+
+          {error && (
+            <Card className="border-red-200 bg-red-50 dark:bg-red-900/20">
+              <CardContent className="p-4 text-red-700 dark:text-red-300">{error}</CardContent>
+            </Card>
+          )}
+
           {/* Demo Mode Notice */}
           <Card className="border-0 shadow-lg bg-gradient-to-r from-green-50 to-teal-50 dark:from-green-900/20 dark:to-teal-900/20 backdrop-blur-sm">
             <CardContent className="p-4">
@@ -81,92 +127,33 @@ export default function ProviderDashboard() {
 
           {/* Stats Overview */}
           <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-5 gap-6">
-            <Card className="border-0 shadow-lg bg-gradient-to-br from-blue-50 to-blue-100 dark:from-blue-900/30 dark:to-blue-800/30 hover:shadow-xl transition-all duration-300">
-              <CardContent className="p-6">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-sm font-medium text-blue-700 dark:text-blue-300">Products Listed</p>
-                    <p className="text-3xl font-bold text-blue-900 dark:text-blue-100">{stats.totalProducts}</p>
-                    <p className="text-xs text-blue-600 dark:text-blue-400 mt-1">Active listings</p>
-                  </div>
-                  <Package className="h-8 w-8 text-blue-600 dark:text-blue-400" />
-                </div>
-              </CardContent>
-            </Card>
-
-            <Card className="border-0 shadow-lg bg-gradient-to-br from-green-50 to-green-100 dark:from-green-900/30 dark:to-green-800/30 hover:shadow-xl transition-all duration-300">
-              <CardContent className="p-6">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-sm font-medium text-green-700 dark:text-green-300">Active Bookings</p>
-                    <p className="text-3xl font-bold text-green-900 dark:text-green-100">{stats.activeBookings}</p>
-                    <p className="text-xs text-green-600 dark:text-green-400 mt-1">Currently rented</p>
-                  </div>
-                  <Calendar className="h-8 w-8 text-green-600 dark:text-green-400" />
-                </div>
-              </CardContent>
-            </Card>
-
-            <Card className="border-0 shadow-lg bg-gradient-to-br from-purple-50 to-purple-100 dark:from-purple-900/30 dark:to-purple-800/30 hover:shadow-xl transition-all duration-300">
-              <CardContent className="p-6">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-sm font-medium text-purple-700 dark:text-purple-300">Total Earnings</p>
-                    <p className="text-3xl font-bold text-purple-900 dark:text-purple-100">${stats.totalEarnings}</p>
-                    <p className="text-xs text-purple-600 dark:text-purple-400 mt-1">This month</p>
-                  </div>
-                  <DollarSign className="h-8 w-8 text-purple-600 dark:text-purple-400" />
-                </div>
-              </CardContent>
-            </Card>
-
-            <Card className="border-0 shadow-lg bg-gradient-to-br from-orange-50 to-orange-100 dark:from-orange-900/30 dark:to-orange-800/30 hover:shadow-xl transition-all duration-300">
-              <CardContent className="p-6">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-sm font-medium text-orange-700 dark:text-orange-300">Average Rating</p>
-                    <p className="text-3xl font-bold text-orange-900 dark:text-orange-100">{stats.avgRating}</p>
-                    <p className="text-xs text-orange-600 dark:text-orange-400 mt-1">Customer rating</p>
-                  </div>
-                  <Star className="h-8 w-8 text-orange-600 dark:text-orange-400" />
-                </div>
-              </CardContent>
-            </Card>
-
-            <Card className="border-0 shadow-lg bg-gradient-to-br from-teal-50 to-teal-100 dark:from-teal-900/30 dark:to-teal-800/30 hover:shadow-xl transition-all duration-300">
-              <CardContent className="p-6">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-sm font-medium text-teal-700 dark:text-teal-300">Growth Rate</p>
-                    <p className="text-3xl font-bold text-teal-900 dark:text-teal-100">{stats.monthlyGrowth}%</p>
-                    <p className="text-xs text-teal-600 dark:text-teal-400 mt-1">vs last month</p>
-                  </div>
-                  <TrendingUp className="h-8 w-8 text-teal-600 dark:text-teal-400" />
-                </div>
-              </CardContent>
-            </Card>
+            <StatCard title="Products Listed" value={loading ? "—" : stats?.totalProducts ?? 0} hint="Active listings" Icon={Package} color="blue" />
+            <StatCard title="Active Bookings" value={loading ? "—" : stats?.activeBookings ?? 0} hint="Currently rented" Icon={Calendar} color="green" />
+            <StatCard title="Total Revenue" value={loading ? "—" : `$${Number(stats?.totalEarnings || 0).toLocaleString()}`} hint="Selected period" Icon={DollarSign} color="purple" />
+            <StatCard title="Average Rating" value={loading ? "—" : stats?.avgRating ?? 0} hint="Customer rating" Icon={Star} color="orange" />
+            <StatCard title="Total Views" value={loading ? "—" : stats?.totalViews ?? 0} hint="Product views" Icon={TrendingUp} color="teal" />
           </div>
 
           {/* Quick Actions */}
           <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-            <DashboardTile 
-              href="/dashboard/provider/products" 
-              title="Manage Products" 
+            <DashboardTile
+              href="/dashboard/provider/products"
+              title="Manage Products"
               description="Add, edit, and manage your rental inventory"
               icon={<Package className="h-6 w-6" />}
               gradient="from-blue-500 to-cyan-500"
             />
-            <DashboardTile 
-              href="/dashboard/provider/bookings" 
-              title="Booking Requests" 
+            <DashboardTile
+              href="/dashboard/provider/bookings"
+              title="Booking Requests"
               description="Review and approve rental requests"
               icon={<Calendar className="h-6 w-6" />}
               gradient="from-green-500 to-emerald-500"
-              badge="3 pending"
+              badge={dashboard ? String((dashboard.bookings?.statusBreakdown || []).length) + " total" : undefined}
             />
-            <DashboardTile 
-              href="/dashboard/provider/reports" 
-              title="Analytics & Reports" 
+            <DashboardTile
+              href="/dashboard/provider/reports"
+              title="Analytics & Reports"
               description="Track performance and earnings insights"
               icon={<BarChart3 className="h-6 w-6" />}
               gradient="from-purple-500 to-pink-500"
@@ -186,8 +173,12 @@ export default function ProviderDashboard() {
               </CardHeader>
               <CardContent>
                 <div className="space-y-4">
-                  {recentActivity.map((activity, index) => (
-                    <div key={index} className="flex items-center justify-between p-4 bg-gradient-to-r from-gray-50 to-gray-100 dark:from-gray-800/50 dark:to-gray-700/50 rounded-lg hover:from-gray-100 hover:to-gray-200 dark:hover:from-gray-700/50 dark:hover:to-gray-600/50 transition-all duration-200">
+                  {loading && <div className="text-sm text-muted-foreground">Loading recent activity...</div>}
+                  {!loading && recentActivity.length === 0 && (
+                    <div className="text-sm text-muted-foreground">No recent bookings</div>
+                  )}
+                  {recentActivity.map((activity) => (
+                    <div key={activity.key} className="flex items-center justify-between p-4 bg-gradient-to-r from-gray-50 to-gray-100 dark:from-gray-800/50 dark:to-gray-700/50 rounded-lg hover:from-gray-100 hover:to-gray-200 dark:hover:from-gray-700/50 dark:hover:to-gray-600/50 transition-all duration-200">
                       <div className="flex items-center space-x-3">
                         <div className="p-2 rounded-full bg-gradient-to-r from-green-500 to-teal-500 text-white">
                           {activity.status === "success" && <CheckCircle className="h-4 w-4" />}
@@ -199,11 +190,13 @@ export default function ProviderDashboard() {
                           <p className="text-xs text-gray-600 dark:text-gray-400">{activity.time}</p>
                         </div>
                       </div>
-                      <Badge 
+                      <Badge
                         className={
-                          activity.status === "success" ? "bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-300" :
-                          activity.status === "completed" ? "bg-blue-100 dark:bg-blue-900/30 text-blue-800 dark:text-blue-300" :
-                          "bg-yellow-100 dark:bg-yellow-900/30 text-yellow-800 dark:text-yellow-300"
+                          activity.status === "success"
+                            ? "bg-green-100 dark:bg-green-900/30 text-green-800 dark:text-green-300"
+                            : activity.status === "completed"
+                            ? "bg-blue-100 dark:bg-blue-900/30 text-blue-800 dark:text-blue-300"
+                            : "bg-yellow-100 dark:bg-yellow-900/30 text-yellow-800 dark:text-yellow-300"
                         }
                       >
                         {activity.status}
@@ -253,6 +246,30 @@ export default function ProviderDashboard() {
         </div>
       </DashboardLayout>
     </Protected>
+  );
+}
+
+function StatCard({ title, value, hint, Icon, color }: { title: string; value: string | number; hint?: string; Icon: any; color: "blue" | "green" | "purple" | "orange" | "teal" }) {
+  const colorMap: Record<string, string> = {
+    blue: "from-blue-50 to-blue-100 dark:from-blue-900/30 dark:to-blue-800/30 text-blue-700 dark:text-blue-300",
+    green: "from-green-50 to-green-100 dark:from-green-900/30 dark:to-green-800/30 text-green-700 dark:text-green-300",
+    purple: "from-purple-50 to-purple-100 dark:from-purple-900/30 dark:to-purple-800/30 text-purple-700 dark:text-purple-300",
+    orange: "from-orange-50 to-orange-100 dark:from-orange-900/30 dark:to-orange-800/30 text-orange-700 dark:text-orange-300",
+    teal: "from-teal-50 to-teal-100 dark:from-teal-900/30 dark:to-teal-800/30 text-teal-700 dark:text-teal-300",
+  };
+  return (
+    <Card className={`border-0 shadow-lg bg-gradient-to-br ${colorMap[color]} hover:shadow-xl transition-all duration-300`}>
+      <CardContent className="p-6">
+        <div className="flex items-center justify-between">
+          <div>
+            <p className={`text-sm font-medium`}>{title}</p>
+            <p className="text-3xl font-bold text-gray-900 dark:text-gray-100">{value}</p>
+            {hint && <p className="text-xs text-muted-foreground mt-1">{hint}</p>}
+          </div>
+          <Icon className={`h-8 w-8`} />
+        </div>
+      </CardContent>
+    </Card>
   );
 }
 

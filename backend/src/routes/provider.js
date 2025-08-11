@@ -620,7 +620,7 @@ router.get('/dashboard', requireProvider, async (req, res, next) => {
         ] = await Promise.all([
             // Product statistics
             Product.aggregate([
-                { $match: { owner: mongoose.Types.ObjectId(req.user.id) } },
+                { $match: { owner: new mongoose.Types.ObjectId(req.user.id) } },
                 {
                     $group: {
                         _id: null,

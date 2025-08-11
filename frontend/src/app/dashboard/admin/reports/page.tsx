@@ -1,5 +1,5 @@
 ﻿"use client";
-import { useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Protected } from "@/components/auth-provider";
 import { DashboardLayout } from "@/components/layout/dashboard-layout";
 import { PageHeader } from "@/components/layout/page-header";
@@ -28,50 +28,70 @@ import {
   UserCheck
 } from "lucide-react";
 
-const mockSystemAnalytics = {
-  platformRevenue: 125450,
-  revenueGrowth: 15.3,
-  totalUsers: 2847,
-  usersGrowth: 22.1,
-  totalProviders: 156,
-  providersGrowth: 18.7,
-  systemHealth: 98.2,
-  healthGrowth: 2.1,
-  monthlyGrowth: [
-    { month: "Jan", users: 2100, providers: 120, revenue: 18500 },
-    { month: "Feb", users: 2250, providers: 128, revenue: 19200 },
-    { month: "Mar", users: 2400, providers: 135, revenue: 20800 },
-    { month: "Apr", users: 2580, providers: 142, revenue: 21500 },
-    { month: "May", users: 2720, providers: 148, revenue: 23200 },
-    { month: "Jun", users: 2847, providers: 156, revenue: 25100 }
-  ],
-  topCategories: [
-    { category: "Electronics", providers: 45, products: 234, revenue: 35400 },
-    { category: "Tools & Equipment", providers: 38, products: 189, revenue: 28900 },
-    { category: "Vehicles", providers: 22, products: 67, revenue: 24600 },
-    { category: "Party & Events", providers: 31, products: 156, revenue: 18200 },
-    { category: "Sports & Recreation", providers: 20, products: 123, revenue: 15300 }
-  ],
-  systemMetrics: [
-    { metric: "Server Uptime", value: "99.9%", status: "excellent", change: 0.1 },
-    { metric: "Average Response Time", value: "245ms", status: "good", change: -12 },
-    { metric: "Error Rate", value: "0.02%", status: "excellent", change: -0.01 },
-    { metric: "Daily Active Users", value: "1,247", status: "good", change: 8.5 },
-    { metric: "Payment Success Rate", value: "99.7%", status: "excellent", change: 0.3 },
-    { metric: "Support Tickets", value: "23", status: "warning", change: 15 }
-  ],
-  recentActivity: [
-    { id: 1, type: "user_registration", description: "New user: Sarah Johnson", timestamp: "2 minutes ago", severity: "info" },
-    { id: 2, type: "provider_approval", description: "Provider approved: Tech Rentals LLC", timestamp: "15 minutes ago", severity: "success" },
-    { id: 3, type: "payment_issue", description: "Payment failed for booking #1247", timestamp: "1 hour ago", severity: "warning" },
-    { id: 4, type: "product_flagged", description: "Product flagged for review: Drone Kit", timestamp: "2 hours ago", severity: "warning" },
-    { id: 5, type: "system_maintenance", description: "Scheduled maintenance completed", timestamp: "3 hours ago", severity: "info" }
-  ]
-};
+import { fetchAdminDashboard } from "@/lib/admin";
 
 export default function AdminReportsPage() {
   const [dateRange, setDateRange] = useState("last-30-days");
   const [reportType, setReportType] = useState("overview");
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [data, setData] = useState<Awaited<ReturnType<typeof fetchAdminDashboard>> | null>(null);
+
+  useEffect(() => {
+    let active = true;
+    (async () => {
+      try {
+        setLoading(true);
+        const periodMap: Record<string, string> = {
+          "last-7-days": "7d",
+          "last-30-days": "30d",
+          "last-90-days": "90d",
+          "last-year": "1y",
+          custom: "30d",
+        };
+        const d = await fetchAdminDashboard(periodMap[dateRange] || "30d");
+        if (!active) return;
+        setData(d);
+        setError(null);
+      } catch (e: any) {
+        if (!active) return;
+        setError(e?.message || "Failed to load analytics");
+      } finally {
+        if (active) setLoading(false);
+      }
+    })();
+    return () => {
+      active = false;
+    };
+  }, [dateRange]);
+
+  const mockSystemAnalytics = useMemo(() => ({
+    platformRevenue: data?.bookings.totalRevenue ?? 0,
+    revenueGrowth: 0,
+    totalUsers: data?.users.total ?? 0,
+    usersGrowth: 0,
+    totalProviders: data?.users.byRole?.find(r => r._id === "provider")?.count ?? 0,
+    providersGrowth: 0,
+    systemHealth: 99.9,
+    healthGrowth: 0,
+    monthlyGrowth: [],
+    topCategories: (data?.products.byCategory || []).map(c => ({
+      category: String(c._id), providers: 0, products: c.count, revenue: 0,
+    })),
+    systemMetrics: [
+      { metric: "Total Bookings", value: String(data?.bookings.totalBookings ?? 0), status: "good", change: 0 },
+      { metric: "Total Revenue", value: `$${(data?.bookings.totalRevenue ?? 0).toLocaleString()}`, status: "excellent", change: 0 },
+      { metric: "Active Users", value: String(data?.users.active ?? 0), status: "good", change: 0 },
+      { metric: "Active Products", value: String(data?.products.active ?? 0), status: "good", change: 0 },
+    ],
+    recentActivity: (data?.recent.bookings || []).map((b: any, idx: number) => ({
+      id: idx + 1,
+      type: "booking",
+      description: `Booking ${b.bookingNumber || b._id} - ${b?.product?.name ?? "Product"}`,
+      timestamp: b?.createdAt ? new Date(b.createdAt).toLocaleString() : "",
+      severity: "info",
+    })),
+  }), [data]);
 
   const getGrowthIcon = (growth: number) => {
     return growth >= 0 ? (
@@ -170,6 +190,14 @@ export default function AdminReportsPage() {
               </div>
             </div>
           </Card>
+
+          {/* Error/Loading */}
+          {error && (
+            <Card className="p-4 border-0 shadow-lg bg-red-50 text-red-700">{error}</Card>
+          )}
+          {loading && (
+            <Card className="p-6 border-0 shadow-lg">Loading...</Card>
+          )}
 
           {/* Key Metrics */}
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
