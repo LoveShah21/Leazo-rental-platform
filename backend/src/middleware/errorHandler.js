@@ -11,13 +11,19 @@ const errorHandler = (error, req, res, next) => {
 
     // Handle different error types
     if (error.name === 'ValidationError') {
-        // Mongoose validation error
+        // Handle Mongoose validation error vs custom app validation error
         statusCode = 400;
         message = 'Validation Error';
-        details = Object.values(error.errors).map(err => ({
-            field: err.path,
-            message: err.message
-        }));
+        if (error && error.errors && typeof error.errors === 'object') {
+            details = Object.values(error.errors).map(err => ({
+                field: err.path,
+                message: err.message
+            }));
+        } else if (Array.isArray(error.details)) {
+            details = error.details;
+        } else if (error.details && typeof error.details === 'object') {
+            details = error.details;
+        }
     } else if (error instanceof ZodError) {
         // Zod validation error
         statusCode = 400;

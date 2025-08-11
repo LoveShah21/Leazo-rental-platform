@@ -32,15 +32,21 @@ const authenticate = async (req, res, next) => {
         let user = await cache.get(`user:${decoded.userId}`);
 
         if (!user) {
-            // If not in cache, get from database
-            user = await User.findById(decoded.userId).select('-password');
+            // If not in cache, get from database as plain object
+            const dbUser = await User.findById(decoded.userId).select('-password').lean();
 
-            if (!user) {
+            if (!dbUser) {
                 throw new UnauthorizedError('User not found');
             }
 
-            // Cache user for 15 minutes
+            // Normalize and cache user
+            user = { ...dbUser, id: dbUser._id?.toString?.() || String(dbUser._id) };
             await cache.set(`user:${decoded.userId}`, user, 900);
+        } else {
+            // Normalize cached user to always include id
+            if (!user.id && user._id) {
+                user.id = typeof user._id === 'string' ? user._id : user._id.toString();
+            }
         }
 
         // Check if user is active
@@ -93,9 +99,14 @@ const optionalAuth = async (req, res, next) => {
         let user = await cache.get(`user:${decoded.userId}`);
 
         if (!user) {
-            user = await User.findById(decoded.userId).select('-password');
-            if (user && user.isActive) {
+            const dbUser = await User.findById(decoded.userId).select('-password').lean();
+            if (dbUser && dbUser.isActive) {
+                user = { ...dbUser, id: dbUser._id?.toString?.() || String(dbUser._id) };
                 await cache.set(`user:${decoded.userId}`, user, 900);
+            }
+        } else {
+            if (!user.id && user._id) {
+                user.id = typeof user._id === 'string' ? user._id : user._id.toString();
             }
         }
 

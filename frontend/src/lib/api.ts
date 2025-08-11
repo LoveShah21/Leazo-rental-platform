@@ -1,6 +1,6 @@
 export const API_BASE_URL =
   (process.env.NEXT_PUBLIC_API_URL?.replace(/\/$/, "") as string) ||
-  "http://localhost:3001/api";
+  "http://localhost:3000/api";
 
 export interface ApiEnvelope<T> {
   success: boolean;

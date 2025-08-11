@@ -8,21 +8,38 @@ class EmailService {
     constructor() {
         this.transporter = null;
         this.templates = new Map();
+        this.usesEthereal = false;
         this.init();
     }
 
     async init() {
         try {
             // Create transporter
-            this.transporter = nodemailer.createTransporter({
-                host: process.env.SMTP_HOST,
-                port: parseInt(process.env.SMTP_PORT) || 587,
-                secure: process.env.SMTP_PORT === '465',
-                auth: {
-                    user: process.env.SMTP_USER,
-                    pass: process.env.SMTP_PASS
-                }
-            });
+            if (process.env.SMTP_HOST && process.env.SMTP_USER && process.env.SMTP_PASS) {
+                this.transporter = nodemailer.createTransport({
+                    host: process.env.SMTP_HOST,
+                    port: parseInt(process.env.SMTP_PORT) || 587,
+                    secure: (process.env.SMTP_PORT || '').toString() === '465',
+                    auth: {
+                        user: process.env.SMTP_USER,
+                        pass: process.env.SMTP_PASS
+                    }
+                });
+            } else {
+                // Fallback to ethereal for dev/testing
+                const testAccount = await nodemailer.createTestAccount();
+                this.transporter = nodemailer.createTransport({
+                    host: 'smtp.ethereal.email',
+                    port: 587,
+                    secure: false,
+                    auth: {
+                        user: testAccount.user,
+                        pass: testAccount.pass
+                    }
+                });
+                this.usesEthereal = true;
+                logger.warn('Email: Using Ethereal test account because SMTP_* env vars are missing');
+            }
 
             // Verify connection
             await this.transporter.verify();
@@ -32,7 +49,7 @@ class EmailService {
             await this.loadTemplates();
         } catch (error) {
             logger.error('Email service initialization failed:', error);
-            throw error;
+            // Do not throw to avoid crashing app; email sending will fail until fixed
         }
     }
 
@@ -147,7 +164,7 @@ class EmailService {
             const html = template(data);
 
             const mailOptions = {
-                from: `${process.env.FROM_NAME} <${process.env.FROM_EMAIL}>`,
+                from: `${process.env.FROM_NAME || 'Leazo Rentals'} <${process.env.FROM_EMAIL || 'no-reply@example.com'}>`,
                 to: to,
                 subject: subject,
                 html: html,
@@ -155,11 +172,16 @@ class EmailService {
             };
 
             const result = await this.transporter.sendMail(mailOptions);
-            logger.info(`Email sent successfully to ${to}`, { messageId: result.messageId });
+            const info = { messageId: result.messageId };
+            if (this.usesEthereal) {
+                info.previewUrl = nodemailer.getTestMessageUrl(result);
+            }
+            logger.info(`Email sent successfully to ${to}`, info);
 
             return {
                 success: true,
-                messageId: result.messageId
+                messageId: result.messageId,
+                ...(info.previewUrl ? { previewUrl: info.previewUrl } : {})
             };
         } catch (error) {
             logger.error(`Failed to send email to ${to}:`, error);
@@ -182,7 +204,7 @@ class EmailService {
         );
     }
 
-    async sendBookingConfirmation(bookingData) {
+    async sendBookingConfirmation(bookingData, attachments = []) {
         const {
             customerEmail,
             customerName,
@@ -206,11 +228,12 @@ class EmailService {
                 endDate: new Date(endDate).toLocaleDateString(),
                 totalAmount,
                 currency
-            }
+            },
+            attachments
         );
     }
 
-    async sendPaymentReceipt(paymentData) {
+    async sendPaymentReceipt(paymentData, attachments = []) {
         const {
             customerEmail,
             customerName,
@@ -230,7 +253,8 @@ class EmailService {
                 amount,
                 currency,
                 paymentDate: new Date(paymentDate).toLocaleDateString()
-            }
+            },
+            attachments
         );
     }
 

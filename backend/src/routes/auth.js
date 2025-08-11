@@ -9,6 +9,7 @@ const { authenticate, optionalAuth, requireAdmin } = require('../middleware/auth
 const { ValidationError, UnauthorizedError, NotFoundError } = require('../middleware/errorHandler');
 const logger = require('../utils/logger');
 const { cache } = require('../config/redis');
+const emailService = require('../services/emailService');
 
 const router = express.Router();
 
@@ -190,6 +191,11 @@ router.post('/register', authLimiter, validateInput(registerSchema), async (req,
         await cache.set(`refresh_token:${user._id}`, refreshToken, 7 * 24 * 60 * 60); // 7 days
 
         logger.info(`New user registered: ${email}`);
+
+        // Fire-and-forget welcome email (do not block response)
+        emailService.sendWelcomeEmail({ email, firstName, lastName }).catch(err => {
+            logger.warn('Welcome email failed:', err.message);
+        });
 
         res.status(201).json({
             success: true,

@@ -3,6 +3,7 @@ const router = express.Router();
 const paymentService = require('../services/paymentService');
 const Booking = require('../models/Booking');
 const { authenticate } = require('../middleware/auth');
+const emailService = require('../services/emailService');
 
 // Create payment session
 router.post('/create-session', authenticate, async (req, res) => {
@@ -94,10 +95,24 @@ router.post('/refund', authenticate, async (req, res) => {
 // Payment callback (for redirect after payment)
 router.get('/callback', async (req, res) => {
     try {
-        const { order_id, order_token } = req.query;
+        const accepts = (req.get('accept') || '').toLowerCase();
+        const wantsJson = accepts.includes('application/json') || req.query.format === 'json';
+        const { order_id } = req.query;
+
+        if (!order_id) {
+            if (wantsJson) {
+                return res.status(400).json({ success: false, error: 'order_id is required' });
+            }
+            return res.redirect(`${process.env.FRONTEND_URL || ''}/payment/error`);
+        }
 
         // Verify payment status
         const result = await paymentService.verifyPayment(order_id);
+
+        if (wantsJson) {
+            const statusCode = result.success ? 200 : 400;
+            return res.status(statusCode).json({ success: !!result.success, status: result.status || 'UNKNOWN' });
+        }
 
         if (result.success && result.status === 'PAID') {
             // Redirect to success page
@@ -108,8 +123,42 @@ router.get('/callback', async (req, res) => {
         }
     } catch (error) {
         console.error('Payment callback error:', error);
-        res.redirect(`${process.env.FRONTEND_URL}/payment/error`);
+        const accepts = (req.get('accept') || '').toLowerCase();
+        const wantsJson = accepts.includes('application/json') || req.query.format === 'json';
+        if (wantsJson) {
+            return res.status(500).json({ success: false, error: 'Payment callback error' });
+        }
+        res.redirect(`${process.env.FRONTEND_URL || ''}/payment/error`);
     }
+});
+
+// TEST: simulate payment status and send emails/invoice
+router.post('/test/simulate', authenticate, async (req, res) => {
+    try {
+        const { bookingNumber, status } = req.body;
+        const result = await paymentService.simulatePaymentStatus(bookingNumber, status || 'PAID');
+        res.json({ success: true, data: result });
+    } catch (error) {
+        console.error('Payment simulate error:', error);
+        res.status(500).json({ success: false, error: error.message });
+    }
+});
+
+// TEST: generate invoice for a booking
+router.post('/test/invoice', authenticate, async (req, res) => {
+    try {
+        const { bookingId } = req.body;
+        const result = await paymentService.generateInvoice({ bookingId });
+        res.json({ success: true, data: result });
+    } catch (error) {
+        res.status(500).json({ success: false, error: error.message });
+    }
+});
+
+// TEST: email connectivity
+router.get('/test/email', async (req, res) => {
+    const result = await emailService.testConnection();
+    res.status(result.success ? 200 : 500).json(result);
 });
 
 module.exports = router;

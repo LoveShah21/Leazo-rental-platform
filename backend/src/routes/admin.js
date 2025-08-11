@@ -11,7 +11,7 @@ const Location = require('../models/Location');
 const { authenticate, requireAdmin, requireManager, requireStaff } = require('../middleware/auth');
 const { ValidationError, NotFoundError } = require('../middleware/errorHandler');
 const { createUploadMiddleware } = require('../config/cloudinary');
-const shiprocketService = require('../services/shiprocketService');
+const shippingService = require('../services/shippingService');
 const paymentService = require('../services/paymentService');
 const logger = require('../utils/logger');
 
@@ -503,32 +503,13 @@ router.get('/bookings', requireStaff, async (req, res, next) => {
     }
 });
 
-// Shiprocket Integration Routes
+// Shipping (Delhivery) Integration Routes
 /**
- * @route   GET /api/admin/shiprocket/pickup-addresses
- * @desc    Get Shiprocket pickup addresses
+ * @route   POST /api/admin/shipping/create
+ * @desc    Create Delhivery shipment for a booking
  * @access  Staff
  */
-router.get('/shiprocket/pickup-addresses', requireStaff, async (req, res, next) => {
-    try {
-        const addresses = await shiprocketService.getPickupLocations();
-
-        res.json({
-            success: true,
-            data: { addresses }
-        });
-
-    } catch (error) {
-        next(error);
-    }
-});
-
-/**
- * @route   POST /api/admin/shiprocket/orders
- * @desc    Create Shiprocket order
- * @access  Staff
- */
-router.post('/shiprocket/orders', requireStaff, async (req, res, next) => {
+router.post('/shipping/create', requireStaff, async (req, res, next) => {
     try {
         const { bookingId } = req.body;
 
@@ -541,96 +522,75 @@ router.post('/shiprocket/orders', requireStaff, async (req, res, next) => {
             throw new NotFoundError('Booking not found');
         }
 
-        // Create Shiprocket order
-        const orderData = {
-            order_id: booking.bookingNumber,
-            order_date: booking.createdAt.toISOString().split('T')[0],
-            pickup_location: booking.location.shiprocket?.pickupLocationId || 'Primary',
-            billing_customer_name: booking.customer.firstName,
-            billing_last_name: booking.customer.lastName,
-            billing_address: booking.delivery.deliveryAddress?.street || booking.delivery.pickupAddress?.street,
-            billing_city: booking.delivery.deliveryAddress?.city || booking.delivery.pickupAddress?.city,
-            billing_pincode: booking.delivery.deliveryAddress?.postalCode || booking.delivery.pickupAddress?.postalCode,
-            billing_state: booking.delivery.deliveryAddress?.state || booking.delivery.pickupAddress?.state,
-            billing_country: booking.delivery.deliveryAddress?.country || booking.delivery.pickupAddress?.country || 'India',
-            billing_email: booking.customer.email,
-            billing_phone: booking.customer.phone,
-            order_items: [{
-                name: booking.product.name,
-                sku: booking.product.slug,
-                units: booking.quantity,
-                selling_price: booking.pricing.baseAmount / booking.quantity
-            }],
-            payment_method: 'Prepaid',
-            sub_total: booking.pricing.totalAmount,
-            weight: booking.product.specifications?.weight || 1,
-            length: booking.product.specifications?.dimensions?.length || 10,
-            breadth: booking.product.specifications?.dimensions?.width || 10,
-            height: booking.product.specifications?.dimensions?.height || 10
-        };
-
-        const result = await shiprocketService.createOrder(orderData);
+        const result = await shippingService.createShipment({
+            orderId: booking.bookingNumber,
+            customerDetails: {
+                name: `${booking.customer.firstName} ${booking.customer.lastName}`.trim(),
+                phone: booking.customer.phone
+            },
+            shippingAddress: {
+                address: booking.delivery?.deliveryAddress?.street || booking.delivery?.pickupAddress?.street,
+                city: booking.delivery?.deliveryAddress?.city || booking.delivery?.pickupAddress?.city,
+                state: booking.delivery?.deliveryAddress?.state || booking.delivery?.pickupAddress?.state,
+                pincode: booking.delivery?.deliveryAddress?.postalCode || booking.delivery?.pickupAddress?.postalCode,
+                country: booking.delivery?.deliveryAddress?.country || booking.delivery?.pickupAddress?.country || 'India'
+            },
+            items: [{ name: booking.product.name, quantity: booking.quantity }],
+            weight: 1,
+            dimensions: {
+                width: booking.product.specifications?.dimensions?.width || 10,
+                height: booking.product.specifications?.dimensions?.height || 10
+            },
+            amount: booking.pricing.totalAmount
+        });
 
         if (result.success) {
-            // Update booking with shipment details
-            booking.shipment.outbound.shiprocketOrderId = result.order_id;
-            booking.shipment.outbound.shiprocketShipmentId = result.shipment_id;
-            await booking.save();
-
-            logger.info(`Shiprocket order created: ${result.order_id} for booking ${bookingId}`);
+            await Booking.findByIdAndUpdate(bookingId, {
+                'shipment.outbound.awbCode': result.waybill,
+                'shipment.outbound.status': result.status?.toLowerCase?.() || 'shipped',
+                'shipment.outbound.trackingUrl': result.trackingUrl,
+                'shipment.outbound.pickupCompleted': new Date()
+            });
         }
 
-        res.json({
-            success: true,
-            message: 'Shiprocket order created successfully',
-            data: result
-        });
-
+        res.json({ success: true, data: result });
     } catch (error) {
         next(error);
     }
 });
 
 /**
- * @route   POST /api/admin/shiprocket/pickup
- * @desc    Schedule pickup
+ * @route   GET /api/admin/shipping/track/:waybill
+ * @desc    Track shipment via Delhivery
  * @access  Staff
  */
-router.post('/shiprocket/pickup', requireStaff, async (req, res, next) => {
+router.get('/shipping/track/:waybill', requireStaff, async (req, res, next) => {
     try {
-        const { shipmentId, pickupDate, pickupTime } = req.body;
-
-        const result = await shiprocketService.schedulePickup({
-            shipment_id: shipmentId,
-            pickup_date: pickupDate,
-            pickup_time: pickupTime
-        });
-
-        res.json({
-            success: true,
-            message: 'Pickup scheduled successfully',
-            data: result
-        });
-
+        const result = await shippingService.trackShipment(req.params.waybill);
+        res.json({ success: true, data: result });
     } catch (error) {
         next(error);
     }
 });
 
 /**
- * @route   GET /api/admin/shiprocket/track/:awb
- * @desc    Track shipment
+ * @route   POST /api/admin/shipping/cancel
+ * @desc    Cancel Delhivery shipment
  * @access  Staff
  */
-router.get('/shiprocket/track/:awb', requireStaff, async (req, res, next) => {
+router.post('/shipping/cancel', requireStaff, async (req, res, next) => {
     try {
-        const result = await shiprocketService.trackShipment(req.params.awb);
+        const { waybill } = req.body;
+        const result = await shippingService.cancelShipment(waybill);
 
-        res.json({
-            success: true,
-            data: result
-        });
+        if (result.success) {
+            await Booking.findOneAndUpdate(
+                { 'shipment.outbound.awbCode': waybill },
+                { 'shipment.outbound.status': 'cancelled', 'shipment.outbound.cancelledAt': new Date() }
+            );
+        }
 
+        res.json({ success: true, data: result });
     } catch (error) {
         next(error);
     }
@@ -658,13 +618,13 @@ router.get('/settings', requireAdmin, async (req, res, next) => {
                 lateFeeGracePeriodHours: 24
             },
             payment: {
-                enabledGateways: ['stripe', 'razorpay'],
-                defaultGateway: 'razorpay',
+                enabledGateways: ['cashfree'],
+                defaultGateway: 'cashfree',
                 taxRate: 0.18
             },
-            shiprocket: {
-                enabled: true,
-                defaultPickupLocation: 'Primary'
+            shipping: {
+                provider: 'delhivery',
+                enabled: true
             }
         };
 

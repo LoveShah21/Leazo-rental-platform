@@ -148,6 +148,50 @@ router.get('/', optionalAuth, async (req, res, next) => {
     }
 });
 
+// Add to your product routes file (e.g., routes/products.js)
+
+/**
+ * @route   POST /api/products
+ * @desc    Create a new product
+ * @access  Private (Provider or Staff)
+ */
+router.post('/', authenticate, requireProviderOrStaff, async (req, res, next) => {
+    try {
+        const productData = {
+            ...req.body,
+            owner: req.user.id, // Assuming the authenticated user is the owner
+            createdBy: req.user.id
+        };
+
+        // Simple validation to ensure required fields are present
+        if (!productData.name || !productData.slug || !productData.description || !productData.category || !productData.pricing?.basePrice?.daily) {
+            throw new ValidationError('Missing required product fields.');
+        }
+
+        const newProduct = new Product(productData);
+        await newProduct.save();
+
+        // Invalidate cache after creating a new product
+        await cache.del('products:*');
+        await cache.del('product:categories');
+        await cache.del('product:tags:*');
+
+        res.status(201).json({
+            success: true,
+            data: { product: newProduct }
+        });
+
+    } catch (error) {
+        // Handle potential duplicate slug error
+        if (error.code === 11000) {
+            next(new ValidationError('A product with this slug already exists.'));
+        } else {
+            next(error);
+        }
+    }
+});
+
+
 /**
  * @route   GET /api/products/:id
  * @desc    Get single product by ID

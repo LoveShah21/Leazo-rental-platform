@@ -87,16 +87,16 @@ router.post('/delhivery', express.json(), async (req, res) => {
         }
     }
 
-    const { waybill, status, status_date, location } = req.body;
+    const { waybill, status, status_date, location } = req.body || {};
 
     try {
         // Update booking with shipping status
         await Booking.findOneAndUpdate(
             { 'shipment.outbound.awbCode': waybill },
             {
-                'shipment.outbound.status': status.toLowerCase(),
-                'shipment.outbound.lastTrackedLocation': location,
-                'shipment.outbound.lastTrackedAt': new Date(status_date)
+                'shipment.outbound.status': (status || 'unknown').toString().toLowerCase(),
+                'shipment.outbound.lastTrackedLocation': location || null,
+                'shipment.outbound.lastTrackedAt': status_date ? new Date(status_date) : new Date()
             }
         );
 

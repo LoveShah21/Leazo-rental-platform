@@ -25,7 +25,7 @@ const queues = {
     email: new Queue('email', queueConfig),
     notifications: new Queue('notifications', queueConfig),
     payments: new Queue('payments', queueConfig),
-    shiprocket: new Queue('shiprocket', queueConfig),
+    shipping: new Queue('shipping', queueConfig),
     reports: new Queue('reports', queueConfig),
     cleanup: new Queue('cleanup', queueConfig),
     analytics: new Queue('analytics', queueConfig)
@@ -101,26 +101,22 @@ const processors = {
         }
     },
 
-    // Shiprocket processor
-    shiprocket: async (job) => {
+    // Shipping processor (Delhivery)
+    shipping: async (job) => {
         const { type, data } = job.data;
-        const shiprocketService = require('../services/shiprocketService');
+        const shippingService = require('../services/shippingService');
 
-        logger.info(`Processing shiprocket job: ${type}`, { jobId: job.id });
+        logger.info(`Processing shipping job: ${type}`, { jobId: job.id });
 
         switch (type) {
-            case 'create_order':
-                return await shiprocketService.createOrder(data);
-            case 'schedule_pickup':
-                return await shiprocketService.schedulePickup(data);
+            case 'create_shipment':
+                return await shippingService.createShipment(data);
             case 'track_shipment':
-                return await shiprocketService.trackShipment(data);
-            case 'generate_label':
-                return await shiprocketService.generateLabel(data);
+                return await shippingService.trackShipment(data);
             case 'cancel_shipment':
-                return await shiprocketService.cancelShipment(data);
+                return await shippingService.cancelShipment(data);
             default:
-                throw new Error(`Unknown shiprocket job type: ${type}`);
+                throw new Error(`Unknown shipping job type: ${type}`);
         }
     },
 
@@ -247,12 +243,10 @@ const paymentJobs = {
     calculateLateFees: (bookingData) => addJob('payments', 'late_fee_calculation', bookingData)
 };
 
-const shiprocketJobs = {
-    createOrder: (orderData) => addJob('shiprocket', 'create_order', orderData),
-    schedulePickup: (pickupData) => addJob('shiprocket', 'schedule_pickup', pickupData),
-    trackShipment: (shipmentData) => addJob('shiprocket', 'track_shipment', shipmentData),
-    generateLabel: (labelData) => addJob('shiprocket', 'generate_label', labelData),
-    cancelShipment: (shipmentData) => addJob('shiprocket', 'cancel_shipment', shipmentData)
+const shippingJobs = {
+    createShipment: (orderData) => addJob('shipping', 'create_shipment', orderData),
+    trackShipment: (waybill) => addJob('shipping', 'track_shipment', waybill),
+    cancelShipment: (waybill) => addJob('shipping', 'cancel_shipment', waybill)
 };
 
 const reportJobs = {
@@ -316,7 +310,7 @@ module.exports = {
     emailJobs,
     notificationJobs,
     paymentJobs,
-    shiprocketJobs,
+    shippingJobs,
     reportJobs,
     cleanupJobs,
     analyticsJobs,
