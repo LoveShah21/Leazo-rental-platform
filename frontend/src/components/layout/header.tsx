@@ -5,21 +5,24 @@ import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { CartDrawer } from "@/components/cart/cart-drawer";
 import { useCartStore } from "@/store/cart";
-import { Search, ShoppingCart, User, Menu, X, Sun, Moon } from "lucide-react";
+import { Search, ShoppingCart, User, Menu, X, Sun, Moon, LogIn, LogOut, LayoutGrid } from "lucide-react";
 import { useTheme } from "next-themes";
 import { motion, AnimatePresence } from "framer-motion";
+import { useAuth } from "@/components/auth-provider";
 
 export function Header() {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const { theme, setTheme } = useTheme();
+  const { user, logout } = useAuth();
   const { getItemCount, toggleCart } = useCartStore();
   const itemCount = getItemCount();
 
   const navigation = [
     { name: "Browse", href: "/catalog" },
     { name: "How it Works", href: "/how-it-works" },
-    { name: "Sustainability", href: "/sustainability" },
-    { name: "Help", href: "/help" },
+  { name: "Sustainability", href: "/sustainability" },
+  // { name: "API Docs", href: "/docs/api" },
+  // { name: "Database", href: "/docs/database" },
   ];
 
   return (
@@ -87,10 +90,20 @@ export function Header() {
             </Button>
 
             {/* User Menu */}
-            <Button variant="ghost" size="icon">
-              <User className="h-5 w-5" />
-              <span className="sr-only">User menu</span>
-            </Button>
+            {user ? (
+              <div className="flex items-center gap-2">
+                <Link href="/dashboard" className="text-sm font-medium hover:underline flex items-center gap-1">
+                  <LayoutGrid className="h-4 w-4" /> Dashboard
+                </Link>
+                <Button variant="ghost" size="sm" onClick={logout}>
+                  <LogOut className="h-4 w-4 mr-1" /> Logout
+                </Button>
+              </div>
+            ) : (
+              <Link href="/login" className="text-sm font-medium hover:underline flex items-center gap-1">
+                <LogIn className="h-4 w-4" /> Login
+              </Link>
+            )}
 
             {/* Mobile Menu Toggle */}
             <Button
@@ -134,6 +147,15 @@ export function Header() {
                     <Search className="h-4 w-4 mr-2" />
                     Search
                   </Button>
+                  {user ? (
+                    <Link href="/dashboard" className="mt-2 inline-flex items-center gap-2 text-sm font-medium">
+                      <LayoutGrid className="h-4 w-4" /> Dashboard
+                    </Link>
+                  ) : (
+                    <Link href="/login" className="mt-2 inline-flex items-center gap-2 text-sm font-medium">
+                      <LogIn className="h-4 w-4" /> Login
+                    </Link>
+                  )}
                 </div>
               </nav>
             </motion.div>

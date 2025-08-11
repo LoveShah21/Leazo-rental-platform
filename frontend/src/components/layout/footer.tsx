@@ -121,7 +121,7 @@ export function Footer() {
         {/* Bottom */}
         <div className="border-t mt-12 pt-8 flex flex-col md:flex-row justify-between items-center gap-4">
           <div className="text-sm text-muted-foreground">
-            © 2024 RentHub. All rights reserved.
+            © 2024 Leazo. All rights reserved.
           </div>
 
           <div className="flex items-center gap-6">

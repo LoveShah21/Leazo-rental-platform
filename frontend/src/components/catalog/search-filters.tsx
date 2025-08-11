@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Slider } from "@/components/ui/slider";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Calendar } from "@/components/ui/calendar";
+import type { DateRange } from "react-day-picker";
 import {
   Popover,
   PopoverContent,
@@ -40,10 +41,7 @@ export function SearchFilters() {
   const [priceRange, setPriceRange] = useState([0, 500]);
   const [selectedCategories, setSelectedCategories] = useState<string[]>([]);
   const [selectedLocations, setSelectedLocations] = useState<string[]>([]);
-  const [dateRange, setDateRange] = useState<{
-    from: Date | undefined;
-    to: Date | undefined;
-  }>({
+  const [dateRange, setDateRange] = useState<DateRange | undefined>({
     from: undefined,
     to: undefined,
   });
@@ -80,7 +78,7 @@ export function SearchFilters() {
     priceRange[1] < 500 ||
     selectedCategories.length > 0 ||
     selectedLocations.length > 0 ||
-    dateRange.from ||
+    (!!dateRange?.from) ||
     minRating > 0 ||
     minGreenScore > 0;
 
@@ -109,18 +107,18 @@ export function SearchFilters() {
               variant="outline"
               className={cn(
                 "w-full justify-start text-left font-normal",
-                !dateRange.from && "text-muted-foreground"
+                !dateRange?.from && "text-muted-foreground"
               )}
             >
               <CalendarIcon className="mr-2 h-4 w-4" />
-              {dateRange.from ? (
-                dateRange.to ? (
+              {dateRange?.from ? (
+                dateRange?.to ? (
                   <>
-                    {format(dateRange.from, "LLL dd, y")} -{" "}
-                    {format(dateRange.to, "LLL dd, y")}
+                    {format(dateRange.from as Date, "LLL dd, y")} -{" "}
+                    {format(dateRange.to as Date, "LLL dd, y")}
                   </>
                 ) : (
-                  format(dateRange.from, "LLL dd, y")
+                  format(dateRange.from as Date, "LLL dd, y")
                 )
               ) : (
                 <span>Pick dates</span>
@@ -131,7 +129,7 @@ export function SearchFilters() {
             <Calendar
               initialFocus
               mode="range"
-              defaultMonth={dateRange.from}
+              defaultMonth={dateRange?.from}
               selected={dateRange}
               onSelect={setDateRange}
               numberOfMonths={2}
