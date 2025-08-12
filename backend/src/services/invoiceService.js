@@ -157,18 +157,43 @@ class InvoiceService {
 
             // Terms and Conditions
             yPosition += 50;
-            doc.fontSize(12)
-                .text('Terms & Conditions:', 50, yPosition)
-                .fontSize(9)
-                .text('1. This is a computer-generated invoice and does not require a signature.', 50, yPosition + 20)
-                .text('2. Security deposit will be refunded after successful return of the item.', 50, yPosition + 35)
-                .text('3. Late return charges may apply as per rental agreement.', 50, yPosition + 50)
-                .text('4. Customer is responsible for any damage to the rented item.', 50, yPosition + 65);
 
-            // Footer
+            // Check if we need a new page for terms and footer
+            if (yPosition > 650) {
+                doc.addPage();
+                yPosition = 50;
+            }
+
+            doc.fontSize(12)
+                .text('Terms & Conditions:', 50, yPosition);
+
+            yPosition += 20;
+            doc.fontSize(9)
+                .text('1. This is a computer-generated invoice and does not require a signature.', 50, yPosition);
+
+            yPosition += 15;
+            doc.text('2. Security deposit will be refunded after successful return of the item.', 50, yPosition);
+
+            yPosition += 15;
+            doc.text('3. Late return charges may apply as per rental agreement.', 50, yPosition);
+
+            yPosition += 15;
+            doc.text('4. Customer is responsible for any damage to the rented item.', 50, yPosition);
+
+            // Footer - ensure it's at the bottom but with proper spacing
+            yPosition += 40;
+
+            // If we're too close to the bottom, add a new page
+            if (yPosition > 720) {
+                doc.addPage();
+                yPosition = 720; // Position footer at bottom of new page
+            }
+
             doc.fontSize(8)
-                .text('Thank you for choosing Leazo Rental Platform!', 50, 750, { align: 'center' })
-                .text('For support, contact us at support@leazo.com', 50, 765, { align: 'center' });
+                .text('Thank you for choosing Leazo Rental Platform!', 50, yPosition, { align: 'center' });
+
+            yPosition += 15;
+            doc.text('For support, contact us at support@leazo.com', 50, yPosition, { align: 'center' });
 
             // Finalize PDF
             doc.end();
@@ -280,27 +305,58 @@ class InvoiceService {
                 }
             }
 
-            // Notes
+            // Notes - use dynamic positioning
+            let notesYPos = 450;
+
             if (notes && notes.customer) {
                 doc.fontSize(14)
-                    .text('Special Instructions:', 50, 450)
-                    .fontSize(10)
-                    .text(notes.customer, 50, 470, { width: 500 });
+                    .text('Special Instructions:', 50, notesYPos);
+                notesYPos += 20;
+                doc.fontSize(10)
+                    .text(notes.customer, 50, notesYPos, { width: 500 });
             }
 
-            // Important Information
-            doc.fontSize(12)
-                .text('Important Information:', 50, 550)
-                .fontSize(9)
-                .text('• Please bring a valid ID for pickup', 50, 570)
-                .text('• Security deposit may be required', 50, 585)
-                .text('• Late return charges apply after the end date', 50, 600)
-                .text('• Contact us immediately for any changes or issues', 50, 615);
+            // Important Information - use dynamic positioning
+            let infoYPos = 550;
 
-            // Footer
+            // Use a safe default position for important information
+
+            // Check if we need a new page
+            if (infoYPos > 650) {
+                doc.addPage();
+                infoYPos = 50;
+            }
+
+            doc.fontSize(12)
+                .text('Important Information:', 50, infoYPos);
+
+            infoYPos += 20;
+            doc.fontSize(9)
+                .text('• Please bring a valid ID for pickup', 50, infoYPos);
+
+            infoYPos += 15;
+            doc.text('• Security deposit may be required', 50, infoYPos);
+
+            infoYPos += 15;
+            doc.text('• Late return charges apply after the end date', 50, infoYPos);
+
+            infoYPos += 15;
+            doc.text('• Contact us immediately for any changes or issues', 50, infoYPos);
+
+            // Footer - ensure proper spacing
+            infoYPos += 40;
+
+            // If we're too close to the bottom, add a new page
+            if (infoYPos > 720) {
+                doc.addPage();
+                infoYPos = 720; // Position footer at bottom of new page
+            }
+
             doc.fontSize(8)
-                .text('Thank you for choosing Leazo Rental Platform!', 50, 750, { align: 'center' })
-                .text('For support, contact us at support@leazo.com', 50, 765, { align: 'center' });
+                .text('Thank you for choosing Leazo Rental Platform!', 50, infoYPos, { align: 'center' });
+
+            infoYPos += 15;
+            doc.text('For support, contact us at support@leazo.com', 50, infoYPos, { align: 'center' });
 
             doc.end();
 
