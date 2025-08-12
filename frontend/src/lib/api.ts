@@ -295,13 +295,8 @@ export async function fetchCustomerBookings(params: BookingFilters = {}): Promis
       }
     });
 
-<<<<<<< HEAD
   const queryString = searchParams.toString();
   const url = `${API_BASE_URL}/bookings${queryString ? `?${queryString}` : ''}`;
-=======
-    const queryString = searchParams.toString();
-    const url = `${API_BASE_URL}/bookings${queryString ? `?${queryString}` : ''}`;
->>>>>>> 9ff9359b456c07cc1b2bbf862fc9b4e4ed6da413
 
     const response = await fetch(url, {
       headers: {
@@ -396,8 +391,4 @@ export async function fetchBookingById(bookingId: string): Promise<{ booking: Bo
     console.error('Error fetching booking:', error);
     throw error;
   }
-<<<<<<< HEAD
 }
-=======
-}
->>>>>>> 9ff9359b456c07cc1b2bbf862fc9b4e4ed6da413

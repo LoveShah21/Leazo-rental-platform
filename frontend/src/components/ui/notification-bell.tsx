@@ -190,11 +190,7 @@ export function NotificationBell({ className }: NotificationSystemProps) {
   const markAsRead = async (notificationId: string) => {
     try {
       // Replace with actual API call
-<<<<<<< HEAD
       // await fetch(/api/notifications/${notificationId}/read, { method: 'PUT' });
-=======
-      // await fetch(`/api/notifications/${notificationId}/read`, { method: 'PUT' });
->>>>>>> 9ff9359b456c07cc1b2bbf862fc9b4e4ed6da413
 
       setNotifications((prev) =>
         prev.map((n) => (n.id === notificationId ? { ...n, read: true } : n))
@@ -218,11 +214,7 @@ export function NotificationBell({ className }: NotificationSystemProps) {
   const deleteNotification = async (notificationId: string) => {
     try {
       // Replace with actual API call
-<<<<<<< HEAD
       // await fetch(/api/notifications/${notificationId}, { method: 'DELETE' });
-=======
-      // await fetch(`/api/notifications/${notificationId}`, { method: 'DELETE' });
->>>>>>> 9ff9359b456c07cc1b2bbf862fc9b4e4ed6da413
 
       setNotifications((prev) => prev.filter((n) => n.id !== notificationId));
     } catch (error) {
@@ -447,8 +439,4 @@ export function NotificationBell({ className }: NotificationSystemProps) {
       </AnimatePresence>
     </div>
   );
-<<<<<<< HEAD
 }
-=======
-}
->>>>>>> 9ff9359b456c07cc1b2bbf862fc9b4e4ed6da413

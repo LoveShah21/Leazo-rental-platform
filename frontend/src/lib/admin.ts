@@ -92,22 +92,42 @@ async function parseUsersResponse(params: Record<string, any>, res: Response): P
   return normalized;
 }
 
-export async function fetchAdminUsers(params: Record<string, any> = {}): Promise<AdminUsersPayload> {
-  const search = new URLSearchParams(params as Record<string, string>).toString();
-  const urlAdmin = `${API_BASE_URL}/admin/users${search ? `?${search}` : ""}`;
-  const resAdmin = await authFetch(urlAdmin);
-  
-  if (resAdmin.ok) {
-    return parseUsersResponse(params, resAdmin);
+export async function fetchAdminUsers(params: Record<string, unknown> = {}): Promise<AdminUsersPayload> {
+  try {
+    // Filter out undefined values before creating URLSearchParams
+    const filteredParams: Record<string, string> = {};
+    Object.keys(params).forEach(key => {
+      const value = params[key];
+      if (value !== undefined && value !== null && value !== '') {
+        filteredParams[key] = String(value);
+      }
+    });
+    
+    const search = new URLSearchParams(filteredParams).toString();
+    const urlAdmin = `${API_BASE_URL}/admin/users${search ? `?${search}` : ""}`;
+    console.log('Fetching admin users from:', urlAdmin);
+    
+    const resAdmin = await authFetch(urlAdmin);
+    console.log('Admin users response status:', resAdmin.status);
+    
+    if (resAdmin.ok) {
+      const result = await parseUsersResponse(params, resAdmin);
+      console.log('Admin users data:', result);
+      return result;
+    }
+    
+    // If admin endpoint fails, throw error with details
+    const errorText = await resAdmin.text().catch(() => '');
+    console.error('Admin users API error:', resAdmin.status, errorText);
+    throw new Error(`Failed to load users (${resAdmin.status}): ${errorText}`);
+  } catch (error) {
+    console.error('fetchAdminUsers error:', error);
+    throw error;
   }
-  
-  // If admin endpoint fails, throw error with details
-  const errorText = await resAdmin.text().catch(() => '');
-  throw new Error(`Failed to load users (${resAdmin.status}): ${errorText}`);
 }
 
 // Convenience helper: fetches all pages and returns a flat list of users
-export async function fetchAllAdminUsers(params: Record<string, any> = {}): Promise<AdminUser[]> {
+export async function fetchAllAdminUsers(params: Record<string, unknown> = {}): Promise<AdminUser[]> {
   let page = 1;
   const maxPages = 50;
   const limit = Math.max(1, Math.min(200, Number(params.limit) || 200));
@@ -160,7 +180,7 @@ export interface AdminProductsPayload {
 async function parseProductsResponse(params: Record<string, any>, res: Response): Promise<AdminProductsPayload> {
   if (!res.ok) throw new Error(`Failed to load products (${res.status})`);
   const json = await res.json();
-  const raw = json?.data as any;
+  const raw = json?.data as unknown;
   const normalized: AdminProductsPayload = {
     products: Array.isArray(raw?.products) ? raw.products : [],
     pagination: {
@@ -173,52 +193,77 @@ async function parseProductsResponse(params: Record<string, any>, res: Response)
   return normalized;
 }
 
-export async function fetchAdminProducts(params: Record<string, any> = {}): Promise<AdminProductsPayload> {
-  const search = new URLSearchParams(params as Record<string, string>).toString();
-  
-  // Try admin endpoint first
-  const urlAdmin = `${API_BASE_URL}/admin/products${search ? `?${search}` : ""}`;
-  const resAdmin = await authFetch(urlAdmin);
-  
-  if (resAdmin.ok) {
-    return parseProductsResponse(params, resAdmin);
-  }
-  
-  // Fallback to public products endpoint
-  const urlPublic = `${API_BASE_URL}/products${search ? `?${search}` : ""}`;
-  const resPublic = await fetch(urlPublic);
-  
-  if (!resPublic.ok) {
-    throw new Error(`Failed to load products (${resPublic.status})`);
-  }
+export async function fetchAdminProducts(params: Record<string, unknown> = {}): Promise<AdminProductsPayload> {
+  try {
+    // Filter out undefined values before creating URLSearchParams
+    const filteredParams: Record<string, string> = {};
+    Object.keys(params).forEach(key => {
+      const value = params[key];
+      if (value !== undefined && value !== null && value !== '') {
+        filteredParams[key] = String(value);
+      }
+    });
+    
+    const search = new URLSearchParams(filteredParams).toString();
+    
+    // Try admin endpoint first
+    const urlAdmin = `${API_BASE_URL}/admin/products${search ? `?${search}` : ""}`;
+    console.log('Fetching admin products from:', urlAdmin);
+    
+    const resAdmin = await authFetch(urlAdmin);
+    console.log('Admin products response status:', resAdmin.status);
+    
+    if (resAdmin.ok) {
+      const result = await parseProductsResponse(params, resAdmin);
+      console.log('Admin products data:', result);
+      return result;
+    }
+    
+    console.warn('Admin products endpoint failed, trying public endpoint');
+    
+    // Fallback to public products endpoint
+    const urlPublic = `${API_BASE_URL}/products${search ? `?${search}` : ""}`;
+    const resPublic = await fetch(urlPublic);
+    
+    if (!resPublic.ok) {
+      const errorText = await resPublic.text().catch(() => '');
+      throw new Error(`Failed to load products (${resPublic.status}): ${errorText}`);
+    }
 
-  const jsonPublic = await resPublic.json();
-  const data = jsonPublic?.data as any;
-  const publicProducts = Array.isArray(data?.products) ? data.products : [];
-  
-  const mapped: AdminProduct[] = publicProducts.map((p: any) => ({
-    _id: String(p._id),
-    name: String(p.name),
-    category: p.category ?? undefined,
-    status: (p.status as any) || 'active',
-    isVisible: p.isVisible ?? true,
-    images: p.images ?? [],
-    pricing: p.pricing ?? {},
-    rating: p.rating ?? {},
-    owner: p.owner ? { firstName: p.owner.firstName, lastName: p.owner.lastName } : undefined,
-    createdAt: p.createdAt ?? undefined,
-  }));
-  
-  const paginationRaw = data?.pagination || {};
-  return {
-    products: mapped,
-    pagination: {
-      page: Number(paginationRaw.page) || 1,
-      limit: Number(paginationRaw.limit) || (Number(params.limit) || 20),
-      total: Number(paginationRaw.total) || mapped.length,
-      pages: Number(paginationRaw.pages) || Math.ceil((Number(paginationRaw.total) || mapped.length) / (Number(params.limit) || 20)),
-    },
-  };
+    const jsonPublic = await resPublic.json();
+    const data = jsonPublic?.data as Record<string, unknown>;
+    const publicProducts = Array.isArray(data?.products) ? data.products : [];
+    
+    const mapped: AdminProduct[] = publicProducts.map((p: Record<string, unknown>) => ({
+      _id: String(p._id),
+      name: String(p.name),
+      category: p.category as string ?? undefined,
+      status: (p.status as AdminProduct['status']) || 'active',
+      isVisible: p.isVisible as boolean ?? true,
+      images: (p.images as AdminProduct['images']) ?? [],
+      pricing: (p.pricing as AdminProduct['pricing']) ?? {},
+      rating: (p.rating as AdminProduct['rating']) ?? {},
+      owner: p.owner ? { 
+        firstName: (p.owner as Record<string, unknown>).firstName as string, 
+        lastName: (p.owner as Record<string, unknown>).lastName as string 
+      } : undefined,
+      createdAt: p.createdAt as string ?? undefined,
+    }));
+    
+    const paginationRaw = (data?.pagination as Record<string, unknown>) || {};
+    return {
+      products: mapped,
+      pagination: {
+        page: Number(paginationRaw.page) || 1,
+        limit: Number(paginationRaw.limit) || (Number(params.limit) || 20),
+        total: Number(paginationRaw.total) || mapped.length,
+        pages: Number(paginationRaw.pages) || Math.ceil((Number(paginationRaw.total) || mapped.length) / (Number(params.limit) || 20)),
+      },
+    };
+  } catch (error) {
+    console.error('fetchAdminProducts error:', error);
+    throw error;
+  }
 }
 
 export async function fetchAllAdminProducts(params: Record<string, unknown> = {}): Promise<AdminProduct[]> {

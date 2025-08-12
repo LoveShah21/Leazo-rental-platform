@@ -67,10 +67,19 @@ export default function AdminProductsPage() {
   const [loadAll, setLoadAll] = useState(false);
 
   async function load() {
+    console.log("Loading admin products...");
     setLoading(true);
     setError(null);
     try {
       if (loadAll) {
+        console.log("Loading all products with params:", {
+          page: 1,
+          limit: 200,
+          search: searchTerm || undefined,
+          status: statusFilter !== "all" ? statusFilter : undefined,
+          category: categoryFilter !== "all" ? categoryFilter : undefined,
+          sort: "created",
+        });
         const all = await fetchAllAdminProducts({
           page: 1,
           limit: 200,
@@ -79,9 +88,18 @@ export default function AdminProductsPage() {
           category: categoryFilter !== "all" ? categoryFilter : undefined,
           sort: "created",
         });
+        console.log("Loaded all products:", all.length);
         setItems(all);
         setPages(1);
       } else {
+        console.log("Loading paginated products with params:", {
+          page,
+          limit: 20,
+          search: searchTerm || undefined,
+          status: statusFilter !== "all" ? statusFilter : undefined,
+          category: categoryFilter !== "all" ? categoryFilter : undefined,
+          sort: "created",
+        });
         const res = await fetchAdminProducts({
           page,
           limit: 20,
@@ -90,12 +108,18 @@ export default function AdminProductsPage() {
           category: categoryFilter !== "all" ? categoryFilter : undefined,
           sort: "created",
         });
+        console.log(
+          "Loaded paginated products:",
+          res.products.length,
+          "total pages:",
+          res.pagination.pages
+        );
         setItems(res.products);
         setPages(res.pagination.pages);
       }
       setError(null);
-    } catch (e: any) {
-      const message = e?.message || "Failed to load products";
+    } catch (e: unknown) {
+      const message = (e as Error)?.message || "Failed to load products";
       console.error("Admin products load error:", e);
       setError(message);
       setItems([]);
@@ -200,7 +224,7 @@ export default function AdminProductsPage() {
       };
       toast({ title: copy[action] || "Updated", variant: "success" });
     } catch (e: unknown) {
-      const message = e?.message || "Failed to update product";
+      const message = (e as Error)?.message || "Failed to update product";
       toast({
         title: "Update failed",
         description: message,

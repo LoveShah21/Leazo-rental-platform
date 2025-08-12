@@ -83,6 +83,9 @@ export function setDemoRole(role: Role | null) {
     localStorage.removeItem(DEMO_KEY);
     // Also clear demo token
     localStorage.removeItem("demo-token");
+    localStorage.removeItem("token");
+    localStorage.removeItem("accessToken");
+    console.log("Demo mode disabled");
   } else {
     localStorage.setItem(DEMO_KEY, role);
     // Generate demo token that backend expects: demo-token-{role}-{timestamp}
@@ -91,6 +94,7 @@ export function setDemoRole(role: Role | null) {
     // Also set as regular token for compatibility
     localStorage.setItem("token", demoToken);
     localStorage.setItem("accessToken", demoToken);
+    console.log("Demo mode enabled with role:", role, "token:", demoToken);
   }
 }
 
@@ -159,11 +163,22 @@ export async function me(): Promise<SessionUser | null> {
   // Demo mode: return a static user for whichever role is selected
   const demoRole = getDemoRole();
   if (demoRole) {
+    console.log("Using demo mode with role:", demoRole);
     return makeDemoUser(demoRole);
   }
 
   const token = getAccessToken();
   if (!token) return null;
+
+  // Skip /auth/me call for demo tokens since they don't work with that endpoint
+  if (token.startsWith("demo-token-")) {
+    const parts = token.split("-");
+    if (parts.length >= 3) {
+      const role = parts[2] as Role;
+      console.log("Using demo token with role:", role);
+      return makeDemoUser(role);
+    }
+  }
 
   try {
     const res = await authFetch(`${API_BASE_URL}/auth/me`, {
@@ -235,19 +250,27 @@ export async function authFetch(
   let token = getAccessToken();
   const headers = new Headers(init.headers);
 
+  console.log(
+    "authFetch - token:",
+    token ? `${token.substring(0, 20)}...` : "none"
+  );
+
   if (token) {
     headers.set("Authorization", `Bearer ${token}`);
   }
 
   let res = await fetch(input, { ...init, headers });
+  console.log("authFetch - response status:", res.status, "for URL:", input);
 
   // If token expired, try to refresh once
   if (res.status === 401 && token) {
+    console.log("authFetch - attempting token refresh");
     const newTokens = await refresh();
     if (newTokens) {
       token = newTokens.accessToken;
       headers.set("Authorization", `Bearer ${token}`);
       res = await fetch(input, { ...init, headers });
+      console.log("authFetch - retry response status:", res.status);
     }
   }
 

@@ -22,7 +22,7 @@ import {
   type AdminUser,
 } from "@/lib/admin";
 import { toast } from "@/components/ui/toaster";
-import { Users, Search, Check, X } from "lucide-react";
+import { Search, Check, X } from "lucide-react";
 
 export default function AdminUsersPage() {
   const [search, setSearch] = useState("");
@@ -36,10 +36,19 @@ export default function AdminUsersPage() {
   const [loadAll, setLoadAll] = useState(false);
 
   async function load() {
+    console.log("Loading admin users...");
     setLoading(true);
     setError(null);
     try {
       if (loadAll) {
+        console.log("Loading all users with params:", {
+          page: 1,
+          limit: 200,
+          search: search || undefined,
+          role: role !== "all" ? role : undefined,
+          isActive: status === "all" ? undefined : status === "active",
+          sort: "createdAt",
+        });
         const all = await fetchAllAdminUsers({
           page: 1,
           limit: 200,
@@ -48,9 +57,18 @@ export default function AdminUsersPage() {
           isActive: status === "all" ? undefined : status === "active",
           sort: "createdAt",
         });
+        console.log("Loaded all users:", all.length);
         setUsers(all);
         setTotalPages(1);
       } else {
+        console.log("Loading paginated users with params:", {
+          page,
+          limit: 20,
+          search: search || undefined,
+          role: role !== "all" ? role : undefined,
+          isActive: status === "all" ? undefined : status === "active",
+          sort: "createdAt",
+        });
         const res = await fetchAdminUsers({
           page,
           limit: 20,
@@ -59,12 +77,18 @@ export default function AdminUsersPage() {
           isActive: status === "all" ? undefined : status === "active",
           sort: "createdAt",
         });
+        console.log(
+          "Loaded paginated users:",
+          res.users.length,
+          "total pages:",
+          res.pagination.pages
+        );
         setUsers(res.users);
         setTotalPages(res.pagination.pages);
       }
       setError(null);
-    } catch (e: any) {
-      const message = e?.message || "Failed to load users";
+    } catch (e: unknown) {
+      const message = (e as Error)?.message || "Failed to load users";
       console.error("Admin users load error:", e);
       setError(message);
       setUsers([]);
@@ -106,8 +130,8 @@ export default function AdminUsersPage() {
         description: `${u.firstName ?? "User"} ${u.lastName ?? ""}`.trim(),
         variant: "success",
       });
-    } catch (e: any) {
-      const message = e?.message || "Failed to update user";
+    } catch (e: unknown) {
+      const message = (e as Error)?.message || "Failed to update user";
       toast({
         title: "Update failed",
         description: message,
@@ -118,7 +142,9 @@ export default function AdminUsersPage() {
 
   async function changeRole(u: AdminUser, newRole: string) {
     try {
-      const updated = await updateAdminUser(u._id, { role: newRole as any });
+      const updated = await updateAdminUser(u._id, {
+        role: newRole as AdminUser["role"],
+      });
       setUsers((prev) =>
         prev.map((p) => (p._id === u._id ? { ...p, role: updated.role } : p))
       );
@@ -128,7 +154,7 @@ export default function AdminUsersPage() {
         variant: "success",
       });
     } catch (e: unknown) {
-      const message = e?.message || "Failed to update role";
+      const message = (e as Error)?.message || "Failed to update role";
       toast({
         title: "Update failed",
         description: message,
