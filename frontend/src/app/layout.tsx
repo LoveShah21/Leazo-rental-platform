@@ -3,7 +3,10 @@ import { Inter } from "next/font/google";
 import "./globals.css";
 import { Providers } from "@/components/providers";
 import { Toaster } from "@/components/ui/toaster";
+<<<<<<< HEAD
 import { ChatbotIcon } from "@/components/ui/chatbot-icon";
+=======
+>>>>>>> 9ff9359b456c07cc1b2bbf862fc9b4e4ed6da413
 
 const inter = Inter({ subsets: ["latin"] });
 
@@ -31,7 +34,10 @@ export default function RootLayout({
         <Providers>
           {children}
           <Toaster />
+<<<<<<< HEAD
           <ChatbotIcon />
+=======
+>>>>>>> 9ff9359b456c07cc1b2bbf862fc9b4e4ed6da413
         </Providers>
       </body>
     </html>

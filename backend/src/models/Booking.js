@@ -355,23 +355,47 @@ bookingSchema.virtual('totalAmountDue').get(function () {
 // Pre-save middleware to generate booking number
 bookingSchema.pre('save', async function (next) {
     if (this.isNew && !this.bookingNumber) {
-        const date = new Date();
-        const year = date.getFullYear().toString().slice(-2);
-        const month = (date.getMonth() + 1).toString().padStart(2, '0');
-        const day = date.getDate().toString().padStart(2, '0');
+        try {
+            const date = new Date();
+            const year = date.getFullYear().toString().slice(-2);
+            const month = (date.getMonth() + 1).toString().padStart(2, '0');
+            const day = date.getDate().toString().padStart(2, '0');
 
-        // Find the last booking number for today
-        const lastBooking = await this.constructor.findOne({
-            bookingNumber: new RegExp(`^BK${year}${month}${day}`)
-        }).sort({ bookingNumber: -1 });
+            // Find the last booking number for today with retry logic
+            let sequence = 1;
+            let attempts = 0;
+            const maxAttempts = 5;
 
-        let sequence = 1;
-        if (lastBooking) {
-            const lastSequence = parseInt(lastBooking.bookingNumber.slice(-4));
-            sequence = lastSequence + 1;
+            while (attempts < maxAttempts) {
+                try {
+                    const lastBooking = await this.constructor.findOne({
+                        bookingNumber: new RegExp(`^BK${year}${month}${day}`)
+                    }).sort({ bookingNumber: -1 }).lean();
+
+                    if (lastBooking) {
+                        const lastSequence = parseInt(lastBooking.bookingNumber.slice(-4));
+                        sequence = lastSequence + 1;
+                    }
+
+                    this.bookingNumber = `BK${year}${month}${day}${sequence.toString().padStart(4, '0')}`;
+                    break;
+                } catch (error) {
+                    attempts++;
+                    if (attempts >= maxAttempts) {
+                        // Fallback to timestamp-based booking number
+                        const timestamp = Date.now().toString().slice(-6);
+                        this.bookingNumber = `BK${year}${month}${day}${timestamp}`;
+                        break;
+                    }
+                    // Wait a bit before retrying
+                    await new Promise(resolve => setTimeout(resolve, 10));
+                }
+            }
+        } catch (error) {
+            // Ultimate fallback
+            const timestamp = Date.now().toString().slice(-8);
+            this.bookingNumber = `BK${timestamp}`;
         }
-
-        this.bookingNumber = `BK${year}${month}${day}${sequence.toString().padStart(4, '0')}`;
     }
     next();
 });
@@ -428,6 +452,33 @@ bookingSchema.methods.updateStatus = async function (newStatus, changedBy, reaso
     });
 
     return this.save();
+};
+
+// Static method to generate booking number
+bookingSchema.statics.generateBookingNumber = async function () {
+    try {
+        const date = new Date();
+        const year = date.getFullYear().toString().slice(-2);
+        const month = (date.getMonth() + 1).toString().padStart(2, '0');
+        const day = date.getDate().toString().padStart(2, '0');
+
+        // Find the last booking number for today
+        const lastBooking = await this.findOne({
+            bookingNumber: new RegExp(`^BK${year}${month}${day}`)
+        }).sort({ bookingNumber: -1 }).lean();
+
+        let sequence = 1;
+        if (lastBooking) {
+            const lastSequence = parseInt(lastBooking.bookingNumber.slice(-4));
+            sequence = lastSequence + 1;
+        }
+
+        return `BK${year}${month}${day}${sequence.toString().padStart(4, '0')}`;
+    } catch (error) {
+        // Fallback to timestamp-based booking number
+        const timestamp = Date.now().toString().slice(-8);
+        return `BK${timestamp}`;
+    }
 };
 
 // Static method to find overlapping bookings

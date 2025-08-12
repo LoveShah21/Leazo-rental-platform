@@ -25,12 +25,12 @@ class NotificationService {
       });
 
       await notification.save();
-      
+
       // Emit real-time notification
       this.emitNotification(notification);
-      
+
       logger.info('Notification created', { notificationId: notification._id, type: data.type });
-      
+
       return notification;
     } catch (error) {
       logger.error('Failed to create notification', { error: error.message, data });
@@ -128,7 +128,7 @@ class NotificationService {
         // Notify admins if critical
         if (product.inventory.quantity <= 2) {
           const admins = await User.find({ role: { $in: ['admin', 'super_admin'] } });
-          
+
           for (const admin of admins) {
             await this.createNotification({
               userId: admin._id,
@@ -204,7 +204,7 @@ class NotificationService {
 
       if (failedPayments.length > 10) {
         const admins = await User.find({ role: { $in: ['admin', 'super_admin'] } });
-        
+
         for (const admin of admins) {
           await this.createNotification({
             userId: admin._id,
@@ -227,7 +227,7 @@ class NotificationService {
       const recentErrors = await this.getRecentErrors();
       if (recentErrors.length > 50) {
         const admins = await User.find({ role: { $in: ['admin', 'super_admin'] } });
-        
+
         for (const admin of admins) {
           await this.createNotification({
             userId: admin._id,
@@ -259,7 +259,7 @@ class NotificationService {
   async getUserNotifications(userId, options = {}) {
     try {
       const { page = 1, limit = 20, unreadOnly = false } = options;
-      
+
       const query = { user: userId };
       if (unreadOnly) {
         query.read = false;
@@ -427,19 +427,32 @@ class NotificationService {
    * Run all notification checks
    */
   async runAllChecks() {
-    try {
-      await Promise.all([
-        this.checkLateFees(),
-        this.checkLowStock(),
-        this.checkPendingPayments(),
-        this.checkSystemHealth()
-      ]);
+    const checks = [
+      { name: 'checkLateFees', fn: () => this.checkLateFees() },
+      { name: 'checkLowStock', fn: () => this.checkLowStock() },
+      { name: 'checkPendingPayments', fn: () => this.checkPendingPayments() },
+      { name: 'checkSystemHealth', fn: () => this.checkSystemHealth() }
+    ];
 
-      logger.info('All notification checks completed');
-    } catch (error) {
-      logger.error('Failed to run notification checks', { error: error.message });
-      throw error;
-    }
+    const results = await Promise.allSettled(checks.map(check => check.fn()));
+
+    let successCount = 0;
+    let failureCount = 0;
+
+    results.forEach((result, index) => {
+      if (result.status === 'fulfilled') {
+        successCount++;
+        logger.info(`${checks[index].name} completed successfully`);
+      } else {
+        failureCount++;
+        logger.error(`Failed to ${checks[index].name}`, { error: result.reason?.message });
+      }
+    });
+
+    logger.info(`Notification checks completed: ${successCount} successful, ${failureCount} failed`);
+
+    // Don't throw error if some checks fail - just log the results
+    return { successCount, failureCount };
   }
 }
 

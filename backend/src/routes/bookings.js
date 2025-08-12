@@ -13,6 +13,8 @@ const { ValidationError, NotFoundError, ConflictError } = require('../middleware
 const { publishBookingStatusChanged } = require('../config/socket');
 const { emailJobs, paymentJobs } = require('../config/queue');
 const paymentService = require('../services/paymentService');
+const emailService = require('../services/emailService');
+const invoiceService = require('../services/invoiceService');
 const logger = require('../utils/logger');
 
 const router = express.Router();
@@ -142,9 +144,13 @@ router.post('/', authenticate, async (req, res, next) => {
             const taxes = baseAmount * 0.18; // 18% GST (adjust as needed)
             const totalAmount = baseAmount + deposit + taxes;
 
+            // Generate booking number
+            const bookingNumber = await Booking.generateBookingNumber();
+
             // Create booking
             const booking = new Booking({
-                customer: req.user.id,
+                bookingNumber,
+                customer: new mongoose.Types.ObjectId(req.user.id),
                 product: productId,
                 location: locationId,
                 quantity,
@@ -175,6 +181,95 @@ router.post('/', authenticate, async (req, res, next) => {
             });
 
             await booking.save({ session });
+
+            logger.info('Booking created successfully:', {
+                bookingId: booking._id,
+                bookingNumber: booking.bookingNumber,
+                customer: booking.customer
+            });
+
+            // Populate booking data for email
+            await booking.populate([
+                { path: 'customer', select: 'firstName lastName email phone' },
+                { path: 'product', select: 'name slug images' },
+                { path: 'location', select: 'name address' }
+            ]);
+
+            // Generate PDF attachments
+            const attachments = [];
+
+            try {
+                // Generate invoice PDF
+                const invoicePDF = await invoiceService.generateInvoicePDF({
+                    bookingNumber: booking.bookingNumber,
+                    customer: booking.customer,
+                    product: booking.product,
+                    location: booking.location,
+                    quantity: booking.quantity,
+                    startDate: booking.startDate,
+                    endDate: booking.endDate,
+                    pricing: booking.pricing,
+                    createdAt: booking.createdAt
+                });
+
+                attachments.push({
+                    filename: invoicePDF.fileName,
+                    path: invoicePDF.filePath,
+                    contentType: 'application/pdf'
+                });
+
+                // Generate booking confirmation PDF
+                const confirmationPDF = await invoiceService.generateBookingConfirmationPDF({
+                    bookingNumber: booking.bookingNumber,
+                    customer: booking.customer,
+                    product: booking.product,
+                    location: booking.location,
+                    quantity: booking.quantity,
+                    startDate: booking.startDate,
+                    endDate: booking.endDate,
+                    status: booking.status,
+                    delivery: booking.delivery,
+                    notes: booking.notes
+                });
+
+                attachments.push({
+                    filename: confirmationPDF.fileName,
+                    path: confirmationPDF.filePath,
+                    contentType: 'application/pdf'
+                });
+
+                logger.info('PDF attachments generated successfully', {
+                    bookingNumber: booking.bookingNumber,
+                    attachmentCount: attachments.length
+                });
+
+            } catch (pdfError) {
+                logger.error('Error generating PDF attachments:', pdfError);
+                // Continue without attachments if PDF generation fails
+            }
+
+            // Send booking confirmation email with attachments
+            try {
+                await emailService.sendBookingConfirmation({
+                    customerEmail: booking.customer.email,
+                    customerName: `${booking.customer.firstName} ${booking.customer.lastName}`,
+                    bookingNumber: booking.bookingNumber,
+                    productName: booking.product.name,
+                    startDate: booking.startDate,
+                    endDate: booking.endDate,
+                    totalAmount: booking.pricing.totalAmount,
+                    currency: booking.pricing.currency
+                }, attachments);
+
+                logger.info('Booking confirmation email sent successfully', {
+                    bookingNumber: booking.bookingNumber,
+                    customerEmail: booking.customer.email
+                });
+
+            } catch (emailError) {
+                logger.error('Error sending booking confirmation email:', emailError);
+                // Don't fail the booking creation if email fails
+            }
 
             // Convert hold if provided
             if (holdId) {
@@ -237,12 +332,64 @@ router.post('/', authenticate, async (req, res, next) => {
 });
 
 /**
+ * @route   GET /api/bookings/debug
+ * @desc    Debug user bookings
+ * @access  Private
+ */
+router.get('/debug', authenticate, async (req, res, next) => {
+    try {
+        logger.info('Debug - User info:', {
+            userId: req.user.id,
+            userIdType: typeof req.user.id,
+            user: req.user
+        });
+
+        // Get all bookings to see what's in the database
+        const allBookings = await Booking.find({}).limit(5).lean();
+        logger.info('Debug - Sample bookings:', allBookings);
+
+        // Try different query variations
+        const queries = [
+            { customer: req.user.id },
+            { customer: req.user._id },
+            { customer: mongoose.Types.ObjectId(req.user.id) }
+        ];
+
+        const results = [];
+        for (const query of queries) {
+            try {
+                const count = await Booking.countDocuments(query);
+                results.push({ query, count });
+            } catch (error) {
+                results.push({ query, error: error.message });
+            }
+        }
+
+        res.json({
+            success: true,
+            debug: {
+                user: req.user,
+                allBookingsCount: allBookings.length,
+                sampleBookings: allBookings,
+                queryResults: results
+            }
+        });
+
+    } catch (error) {
+        logger.error('Debug error:', error);
+        next(error);
+    }
+});
+
+/**
  * @route   GET /api/bookings
  * @desc    Get user bookings
  * @access  Private
  */
 router.get('/', authenticate, async (req, res, next) => {
     try {
+        logger.info('Fetching bookings for user:', { userId: req.user.id });
+
         const {
             status,
             page = 1,
@@ -252,7 +399,12 @@ router.get('/', authenticate, async (req, res, next) => {
             sort = 'createdAt'
         } = req.query;
 
-        const query = { customer: req.user.id };
+        // Ensure proper ObjectId format for customer query
+        const customerId = mongoose.Types.ObjectId.isValid(req.user.id)
+            ? new mongoose.Types.ObjectId(req.user.id)
+            : req.user.id;
+
+        const query = { customer: customerId };
 
         if (status) {
             query.status = status;
@@ -263,6 +415,8 @@ router.get('/', authenticate, async (req, res, next) => {
             if (startDate) query.startDate.$gte = parseISO(startDate);
             if (endDate) query.startDate.$lte = parseISO(endDate);
         }
+
+        logger.info('Booking query:', query);
 
         const skip = (parseInt(page) - 1) * parseInt(limit);
         const sortQuery = sort === 'startDate' ? { startDate: -1 } : { createdAt: -1 };
@@ -278,6 +432,8 @@ router.get('/', authenticate, async (req, res, next) => {
             Booking.countDocuments(query)
         ]);
 
+        logger.info('Found bookings:', { count: bookings.length, total });
+
         res.json({
             success: true,
             data: {
@@ -292,6 +448,7 @@ router.get('/', authenticate, async (req, res, next) => {
         });
 
     } catch (error) {
+        logger.error('Error fetching user bookings:', error);
         next(error);
     }
 });
