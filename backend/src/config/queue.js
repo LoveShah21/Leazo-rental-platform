@@ -47,7 +47,7 @@ const processors = {
             case 'welcome':
                 return await emailService.sendWelcomeEmail(data);
             case 'booking_confirmation':
-                return await emailService.sendBookingConfirmation(data);
+                return await emailService.sendBookingConfirmation(data, data.attachments || []);
             case 'payment_receipt':
                 return await emailService.sendPaymentReceipt(data);
             case 'booking_reminder':
@@ -156,15 +156,42 @@ const processors = {
         logger.info(`Processing cleanup job: ${type}`, { jobId: job.id });
 
         switch (type) {
+            case 'test':
+                // Test job for Redis connectivity - just return success
+                return { status: 'test completed' };
             case 'expired_holds':
-                const Hold = require('../models/Hold');
-                return await Hold.cleanupExpired();
+                try {
+                    const Hold = require('../models/Hold');
+                    const cleanedCount = await Hold.cleanupExpired();
+                    logger.info(`Cleaned up ${cleanedCount} expired holds`);
+                    return { cleaned: cleanedCount };
+                } catch (error) {
+                    logger.error('Failed to cleanup expired holds:', error.message);
+                    return { cleaned: 0, error: error.message };
+                }
             case 'old_logs':
                 // Implement log cleanup
                 return { cleaned: 0 };
             case 'temp_files':
-                const { cleanupOldFiles } = require('./cloudinary');
-                return await cleanupOldFiles('temp', 1); // 1 day old
+                try {
+                    const { cleanupOldFiles } = require('./cloudinary');
+                    const result = await cleanupOldFiles('temp', 1); // 1 day old
+                    logger.info('Temp files cleanup completed', result);
+                    return result;
+                } catch (error) {
+                    logger.error('Failed to cleanup temp files:', error.message);
+                    return { cleaned: 0, error: error.message };
+                }
+            case 'invoice_files':
+                try {
+                    const invoiceService = require('../services/invoiceService');
+                    const cleaned = await invoiceService.cleanupOldFiles(24); // 24 hours old
+                    logger.info('Invoice files cleanup completed', { cleaned });
+                    return { cleaned };
+                } catch (error) {
+                    logger.error('Failed to cleanup invoice files:', error.message);
+                    return { cleaned: 0, error: error.message };
+                }
             default:
                 throw new Error(`Unknown cleanup job type: ${type}`);
         }
@@ -279,43 +306,54 @@ const analyticsJobs = {
 
 // Recurring jobs setup
 const setupRecurringJobs = async () => {
-    // Cleanup expired holds every 5 minutes
-    await queues.cleanup.add('expired_holds', { type: 'expired_holds', data: {} }, {
-        repeat: { pattern: '*/5 * * * *' },
-        jobId: 'cleanup-expired-holds'
-    });
+    try {
+        // Cleanup expired holds every 5 minutes
+        await queues.cleanup.add('expired_holds', { type: 'expired_holds', data: {} }, {
+            repeat: { pattern: '*/5 * * * *' },
+            jobId: 'cleanup-expired-holds'
+        });
 
-    // Generate daily analytics at midnight
-    await queues.analytics.add('daily_kpis', { type: 'calculate_kpis', data: {} }, {
-        repeat: { pattern: '0 0 * * *' },
-        jobId: 'daily-kpis'
-    });
+        // Generate daily analytics at midnight
+        await queues.analytics.add('daily_kpis', { type: 'calculate_kpis', data: {} }, {
+            repeat: { pattern: '0 0 * * *' },
+            jobId: 'daily-kpis'
+        });
 
-    // Cleanup temp files daily at 2 AM
-    await queues.cleanup.add('temp_files', { type: 'temp_files', data: {} }, {
-        repeat: { pattern: '0 2 * * *' },
-        jobId: 'cleanup-temp-files'
-    });
+        // Cleanup temp files daily at 2 AM
+        await queues.cleanup.add('temp_files', { type: 'temp_files', data: {} }, {
+            repeat: { pattern: '0 2 * * *' },
+            jobId: 'cleanup-temp-files'
+        });
 
-    // Run notification checks every 15 minutes
-    await queues.notifications.add('notification_checks', { type: 'run_all_checks', data: {} }, {
-        repeat: { pattern: '*/15 * * * *' },
-        jobId: 'notification-checks'
-    });
+        // Cleanup invoice files daily at 3 AM
+        await queues.cleanup.add('invoice_files', { type: 'invoice_files', data: {} }, {
+            repeat: { pattern: '0 3 * * *' },
+            jobId: 'cleanup-invoice-files'
+        });
 
-    // Run late fee checks every hour
-    await queues.notifications.add('late_fee_checks', { type: 'late_fee_check', data: {} }, {
-        repeat: { pattern: '0 * * * *' },
-        jobId: 'late-fee-checks'
-    });
+        // Run notification checks every 15 minutes
+        await queues.notifications.add('notification_checks', { type: 'run_all_checks', data: {} }, {
+            repeat: { pattern: '*/15 * * * *' },
+            jobId: 'notification-checks'
+        });
 
-    // Run low stock checks every 30 minutes
-    await queues.notifications.add('low_stock_checks', { type: 'low_stock_check', data: {} }, {
-        repeat: { pattern: '*/30 * * * *' },
-        jobId: 'low-stock-checks'
-    });
+        // Run late fee checks every hour
+        await queues.notifications.add('late_fee_checks', { type: 'late_fee_check', data: {} }, {
+            repeat: { pattern: '0 * * * *' },
+            jobId: 'late-fee-checks'
+        });
 
-    logger.info('Recurring jobs set up successfully');
+        // Run low stock checks every 30 minutes
+        await queues.notifications.add('low_stock_checks', { type: 'low_stock_check', data: {} }, {
+            repeat: { pattern: '*/30 * * * *' },
+            jobId: 'low-stock-checks'
+        });
+
+        logger.info('Recurring jobs set up successfully');
+    } catch (error) {
+        logger.error('Failed to setup recurring jobs - Redis may not be available:', error.message);
+        throw error;
+    }
 };
 
 // Graceful shutdown

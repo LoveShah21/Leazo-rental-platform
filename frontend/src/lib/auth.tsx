@@ -2,7 +2,13 @@
 
 import { API_BASE_URL } from "./api";
 
-export type Role = "customer" | "provider" | "staff" | "manager" | "admin" | "super_admin";
+export type Role =
+  | "customer"
+  | "provider"
+  | "staff"
+  | "manager"
+  | "admin"
+  | "super_admin";
 
 export interface SessionUser {
   id: string;
@@ -40,6 +46,11 @@ function setTokens(tokens: Tokens) {
 
 export function getAccessToken(): string | null {
   if (typeof window === "undefined") return null;
+
+  // Check for demo token first
+  const demoToken = localStorage.getItem("demo-token");
+  if (demoToken) return demoToken;
+
   return (
     localStorage.getItem(ACCESS_KEY) ||
     localStorage.getItem("accessToken") ||
@@ -50,8 +61,7 @@ export function getAccessToken(): string | null {
 export function getRefreshToken(): string | null {
   if (typeof window === "undefined") return null;
   return (
-    localStorage.getItem(REFRESH_KEY) ||
-    localStorage.getItem("refreshToken")
+    localStorage.getItem(REFRESH_KEY) || localStorage.getItem("refreshToken")
   );
 }
 
@@ -63,14 +73,24 @@ export function clearTokens() {
   localStorage.removeItem("accessToken");
   localStorage.removeItem("token");
   localStorage.removeItem("refreshToken");
+  // Demo token
+  localStorage.removeItem("demo-token");
 }
 
 export function setDemoRole(role: Role | null) {
   if (typeof window === "undefined") return;
   if (!role) {
     localStorage.removeItem(DEMO_KEY);
+    // Also clear demo token
+    localStorage.removeItem("demo-token");
   } else {
     localStorage.setItem(DEMO_KEY, role);
+    // Generate demo token that backend expects: demo-token-{role}-{timestamp}
+    const demoToken = `demo-token-${role}-${Date.now()}`;
+    localStorage.setItem("demo-token", demoToken);
+    // Also set as regular token for compatibility
+    localStorage.setItem("token", demoToken);
+    localStorage.setItem("accessToken", demoToken);
   }
 }
 
@@ -81,7 +101,9 @@ export function getDemoRole(): Role | null {
 }
 
 function makeDemoUser(role: Role): SessionUser {
-  const roleLabel = role.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
+  const roleLabel = role
+    .replace(/_/g, " ")
+    .replace(/\b\w/g, (c) => c.toUpperCase());
   return {
     id: "demo-user",
     email: "demo@leazo.dev",
@@ -98,12 +120,12 @@ export async function login(email: string, password: string): Promise<Session> {
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ email, password }),
   });
-  
+
   if (!res.ok) {
     const errorData = await res.json().catch(() => ({}));
     throw new Error(errorData.error?.message || "Invalid credentials");
   }
-  
+
   const json = await res.json();
   const data = json.data as { user: SessionUser; tokens: Tokens };
   setTokens(data.tokens);
@@ -121,12 +143,12 @@ export async function register(payload: {
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(payload),
   });
-  
+
   if (!res.ok) {
     const errorData = await res.json().catch(() => ({}));
     throw new Error(errorData.error?.message || "Registration failed");
   }
-  
+
   const json = await res.json();
   const data = json.data as { user: SessionUser; tokens: Tokens };
   setTokens(data.tokens);
@@ -139,26 +161,26 @@ export async function me(): Promise<SessionUser | null> {
   if (demoRole) {
     return makeDemoUser(demoRole);
   }
-  
+
   const token = getAccessToken();
   if (!token) return null;
-  
+
   try {
     const res = await authFetch(`${API_BASE_URL}/auth/me`, {
       cache: "no-store",
     });
-    
+
     if (res.status === 401) return null;
     if (!res.ok) {
       // Don't throw error, just return null for failed auth
-      console.warn('Auth check failed:', res.status);
+      console.warn("Auth check failed:", res.status);
       return null;
     }
-    
+
     const json = await res.json();
     return json.data.user as SessionUser;
   } catch (error) {
-    console.warn('Auth check error:', error);
+    console.warn("Auth check error:", error);
     return null;
   }
 }
@@ -166,29 +188,29 @@ export async function me(): Promise<SessionUser | null> {
 export async function refresh(): Promise<Tokens | null> {
   const refreshToken = getRefreshToken();
   if (!refreshToken) return null;
-  
+
   try {
     const res = await fetch(`${API_BASE_URL}/auth/refresh`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ refreshToken }),
     });
-    
+
     if (!res.ok) return null;
-    
+
     const json = await res.json();
     const tokens = json.data.tokens as Tokens;
     setTokens(tokens);
     return tokens;
   } catch (error) {
-    console.warn('Token refresh failed:', error);
+    console.warn("Token refresh failed:", error);
     return null;
   }
 }
 
 export async function logout(): Promise<void> {
   const token = getAccessToken();
-  
+
   // Only clear tokens and demo role - let backend handle token invalidation
   try {
     if (token) {
@@ -198,7 +220,7 @@ export async function logout(): Promise<void> {
       });
     }
   } catch (error) {
-    console.warn('Logout API call failed:', error);
+    console.warn("Logout API call failed:", error);
   } finally {
     // Always clear local storage regardless of API call success
     clearTokens();
@@ -206,16 +228,19 @@ export async function logout(): Promise<void> {
   }
 }
 
-export async function authFetch(input: RequestInfo | URL, init: RequestInit = {}): Promise<Response> {
+export async function authFetch(
+  input: RequestInfo | URL,
+  init: RequestInit = {}
+): Promise<Response> {
   let token = getAccessToken();
   const headers = new Headers(init.headers);
-  
+
   if (token) {
     headers.set("Authorization", `Bearer ${token}`);
   }
-  
+
   let res = await fetch(input, { ...init, headers });
-  
+
   // If token expired, try to refresh once
   if (res.status === 401 && token) {
     const newTokens = await refresh();
@@ -225,7 +250,7 @@ export async function authFetch(input: RequestInfo | URL, init: RequestInit = {}
       res = await fetch(input, { ...init, headers });
     }
   }
-  
+
   return res;
 }
 
@@ -236,7 +261,7 @@ export function useSimpleAuth() {
 
   React.useEffect(() => {
     let mounted = true;
-    
+
     me().then((userData) => {
       if (mounted) {
         setUser(userData);
@@ -262,7 +287,12 @@ export function useSimpleAuth() {
 
   const setDemo = (role: Role) => {
     setDemoRole(role);
-    setUser(makeDemoUser(role));
+    const demoUser = makeDemoUser(role);
+    setUser(demoUser);
+    // Force a re-render to ensure token is available
+    setTimeout(() => {
+      setUser({ ...demoUser });
+    }, 100);
   };
 
   return {
@@ -275,22 +305,28 @@ export function useSimpleAuth() {
 }
 
 // Add React import for the hook
-import React from 'react';
-import { useRouter } from 'next/navigation';
+import React from "react";
+import { useRouter } from "next/navigation";
 
 // Lightweight Protected wrapper with role checks, replacing the old AuthProvider usage
-export function Protected({ children, roles = [] as Role[] }: { children: React.ReactNode; roles?: Role[] }) {
+export function Protected({
+  children,
+  roles = [] as Role[],
+}: {
+  children: React.ReactNode;
+  roles?: Role[];
+}) {
   const { user, loading } = useSimpleAuth();
   const router = useRouter();
 
   React.useEffect(() => {
     if (loading) return;
     if (!user) {
-      router.push('/login');
+      router.push("/login");
       return;
     }
     if (roles.length > 0 && !roles.includes(user.role)) {
-      router.push('/unauthorized');
+      router.push("/unauthorized");
     }
   }, [user, loading, roles, router]);
 
@@ -306,5 +342,3 @@ export function Protected({ children, roles = [] as Role[] }: { children: React.
   if (roles.length > 0 && !roles.includes(user.role)) return null;
   return <>{children}</>;
 }
-
-

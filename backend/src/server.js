@@ -62,17 +62,17 @@ app.use(cors({
 
 // Rate limiting
 const isGlobalRateLimitDisabled = process.env.DISABLE_GLOBAL_RATE_LIMIT === 'true'
-  || process.env.DISABLE_RATE_LIMITING === 'true'
-  || process.env.NODE_ENV === 'development';
+    || process.env.DISABLE_RATE_LIMITING === 'true'
+    || process.env.NODE_ENV === 'development';
 
 const limiter = isGlobalRateLimitDisabled
-  ? (req, res, next) => next()
-  : rateLimit({
-      windowMs: parseInt(process.env.RATE_LIMIT_WINDOW_MS) || 15 * 60 * 1000, // 15 minutes
-      max: parseInt(process.env.RATE_LIMIT_MAX_REQUESTS) || 100,
-      message: 'Too many requests from this IP, please try again later.',
-      standardHeaders: true,
-      legacyHeaders: false,
+    ? (req, res, next) => next()
+    : rateLimit({
+        windowMs: parseInt(process.env.RATE_LIMIT_WINDOW_MS) || 15 * 60 * 1000, // 15 minutes
+        max: parseInt(process.env.RATE_LIMIT_MAX_REQUESTS) || 100,
+        message: 'Too many requests from this IP, please try again later.',
+        standardHeaders: true,
+        legacyHeaders: false,
     });
 
 app.use(limiter);
@@ -103,17 +103,23 @@ app.get('/ready', async (req, res) => {
             throw new Error('Database not connected');
         }
 
-        // Check Redis connection
-        const { getRedisClient } = require('./config/redis');
-        const redis = getRedisClient();
-        await redis.ping();
+        // Check Redis connection (optional)
+        let redisStatus = 'not available';
+        try {
+            const { getRedisClient } = require('./config/redis');
+            const redis = getRedisClient();
+            await redis.ping();
+            redisStatus = 'connected';
+        } catch (redisError) {
+            redisStatus = 'disconnected';
+        }
 
         res.status(200).json({
             status: 'Ready',
             timestamp: new Date().toISOString(),
             services: {
                 database: 'connected',
-                redis: 'connected'
+                redis: redisStatus
             }
         });
     } catch (error) {
@@ -151,8 +157,10 @@ async function startServer() {
         await connectDB();
 
         // Try to connect to Redis (optional for development)
+        let redisConnected = false;
         try {
             await connectRedis();
+            redisConnected = true;
             logger.info('✅ Redis connected successfully');
         } catch (redisError) {
             logger.warn('⚠️ Redis connection failed - running without Redis/Queue functionality:', redisError.message);
@@ -175,8 +183,17 @@ async function startServer() {
         // Initialize Socket.IO
         initializeSocketIO(io);
 
-        // Schedule background jobs
-        await setupRecurringJobs();
+        // Schedule background jobs only if Redis is connected
+        if (redisConnected) {
+            try {
+                await setupRecurringJobs();
+                logger.info('✅ Background jobs scheduled successfully');
+            } catch (jobError) {
+                logger.warn('⚠️ Failed to setup background jobs:', jobError.message);
+            }
+        } else {
+            logger.warn('⚠️ Skipping background job setup - Redis not available');
+        }
 
     } catch (error) {
         logger.error('Server startup error:', error);

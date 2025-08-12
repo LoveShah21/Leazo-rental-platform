@@ -46,10 +46,18 @@ export interface AdminDashboardResponse {
 }
 
 export async function fetchAdminDashboard(period: string = "30d"): Promise<AdminDashboardResponse["dashboard"]> {
-  const res = await authFetch(`${API_BASE_URL}/admin/dashboard?period=${encodeURIComponent(period)}`);
-  if (!res.ok) throw new Error(`Failed to load admin dashboard (${res.status})`);
-  const json = await res.json();
-  return json.data.dashboard as AdminDashboardResponse["dashboard"];
+  try {
+    const res = await authFetch(`${API_BASE_URL}/admin/dashboard?period=${encodeURIComponent(period)}`);
+    if (!res.ok) {
+      const errorText = await res.text().catch(() => '');
+      throw new Error(`Failed to load admin dashboard (${res.status}): ${errorText}`);
+    }
+    const json = await res.json();
+    return json.data.dashboard as AdminDashboardResponse["dashboard"];
+  } catch (error) {
+    console.error("fetchAdminDashboard error:", error);
+    throw error;
+  }
 }
 
 // ADMIN USERS
@@ -88,11 +96,14 @@ export async function fetchAdminUsers(params: Record<string, any> = {}): Promise
   const search = new URLSearchParams(params as Record<string, string>).toString();
   const urlAdmin = `${API_BASE_URL}/admin/users${search ? `?${search}` : ""}`;
   const resAdmin = await authFetch(urlAdmin);
-  if (resAdmin.ok) return parseUsersResponse(params, resAdmin);
-  // Fallback to auth route if admin route unavailable in some envs
-  const urlAuth = `${API_BASE_URL}/auth/users${search ? `?${search}` : ""}`;
-  const resAuth = await authFetch(urlAuth);
-  return parseUsersResponse(params, resAuth);
+  
+  if (resAdmin.ok) {
+    return parseUsersResponse(params, resAdmin);
+  }
+  
+  // If admin endpoint fails, throw error with details
+  const errorText = await resAdmin.text().catch(() => '');
+  throw new Error(`Failed to load users (${resAdmin.status}): ${errorText}`);
 }
 
 // Convenience helper: fetches all pages and returns a flat list of users
@@ -165,17 +176,19 @@ async function parseProductsResponse(params: Record<string, any>, res: Response)
 export async function fetchAdminProducts(params: Record<string, any> = {}): Promise<AdminProductsPayload> {
   const search = new URLSearchParams(params as Record<string, string>).toString();
   
-  // Use public products endpoint (same as product grid) - it has the data
+  // Try admin endpoint first
+  const urlAdmin = `${API_BASE_URL}/admin/products${search ? `?${search}` : ""}`;
+  const resAdmin = await authFetch(urlAdmin);
+  
+  if (resAdmin.ok) {
+    return parseProductsResponse(params, resAdmin);
+  }
+  
+  // Fallback to public products endpoint
   const urlPublic = `${API_BASE_URL}/products${search ? `?${search}` : ""}`;
   const resPublic = await fetch(urlPublic);
   
   if (!resPublic.ok) {
-    // Try admin endpoint as fallback
-    const urlAdmin = `${API_BASE_URL}/admin/products${search ? `?${search}` : ""}`;
-    const resAdmin = await authFetch(urlAdmin);
-    if (resAdmin.ok) {
-      return parseProductsResponse(params, resAdmin);
-    }
     throw new Error(`Failed to load products (${resPublic.status})`);
   }
 
@@ -203,12 +216,12 @@ export async function fetchAdminProducts(params: Record<string, any> = {}): Prom
       page: Number(paginationRaw.page) || 1,
       limit: Number(paginationRaw.limit) || (Number(params.limit) || 20),
       total: Number(paginationRaw.total) || mapped.length,
-      pages: Number(paginationRaw.pages) || (Number(paginationRaw.hasNext) ? Number(paginationRaw.pages) || 1 : 1),
+      pages: Number(paginationRaw.pages) || Math.ceil((Number(paginationRaw.total) || mapped.length) / (Number(params.limit) || 20)),
     },
   };
 }
 
-export async function fetchAllAdminProducts(params: Record<string, any> = {}): Promise<AdminProduct[]> {
+export async function fetchAllAdminProducts(params: Record<string, unknown> = {}): Promise<AdminProduct[]> {
   let page = 1;
   const maxPages = 50;
   const limit = Math.max(1, Math.min(200, Number(params.limit) || 200));
