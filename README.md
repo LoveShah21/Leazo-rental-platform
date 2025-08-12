@@ -8,7 +8,14 @@ A comprehensive, production-ready rental management platform built with modern t
 ![TypeScript](https://img.shields.io/badge/TypeScript-5+-blue.svg)
 ![License](https://img.shields.io/badge/License-MIT-yellow.svg)
 
+
+## video-url: https://drive.google.com/file/d/18ugBCDDr8BEPo_sf94NRPpWBPAWV9Ase/view?usp=drive_link 
+### email automation at the end of the checkout process: 
+<img width="1503" height="845" alt="image" src="https://github.com/user-attachments/assets/49bd8fb8-de95-4433-b60b-a63dc3a7ec25" />
+<img width="1329" height="921" alt="image" src="https://github.com/user-attachments/assets/605a5b4e-231f-48dd-81df-cf0a91db8188" />
+<img width="1222" height="927" alt="image" src="https://github.com/user-attachments/assets/80fb608e-b680-4619-bc7d-a809d2826d83" />
 ## 🌟 Key Features
+
 
 ### 🛍️ **Product & Inventory Management**
 
