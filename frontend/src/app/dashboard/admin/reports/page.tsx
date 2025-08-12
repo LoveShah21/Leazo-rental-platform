@@ -656,23 +656,49 @@ export default function AdminReportsPage() {
             <Card className="p-6 border-0 shadow-lg bg-white/70 dark:bg-slate-800/70 backdrop-blur-sm">
               <div className="flex items-center justify-between mb-4">
                 <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100">Platform Growth</h3>
-                <BarChart3 className="h-5 w-5 text-gray-600 dark:text-gray-400" />
+                <PieChart className="h-5 w-5 text-purple-500 dark:text-pink-400" />
               </div>
-              <div className="space-y-4">
-                {comprehensiveAnalytics.monthlyGrowth.map((data: { month: string; users: number }, index: number) => (
-                  <div key={index} className="space-y-2">
-                    <div className="flex justify-between text-sm">
-                      <span className="font-medium text-gray-600 dark:text-gray-400">{data.month}</span>
-                      <span className="text-gray-900 dark:text-gray-100">{data.users} users</span>
-                    </div>
-                    <div className="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2">
-                      <div 
-                        className="bg-gradient-to-r from-purple-500 to-pink-500 h-2 rounded-full" 
-                        style={{ width: `${(data.users / 3000) * 100}%` }}
-                      ></div>
-                    </div>
-                  </div>
-                ))}
+              {/* Pie Chart Visualization */}
+              <div className="w-full flex flex-col items-center py-4">
+                <svg viewBox="0 0 200 200" width="220" height="220" className="mx-auto">
+                  {(() => {
+                    const data = comprehensiveAnalytics.monthlyGrowth;
+                    const total = data.reduce((sum, d) => sum + d.users, 0);
+                    let startAngle = 0;
+                    const colors = ["#a78bfa", "#ec4899", "#f59e42", "#38bdf8", "#34d399", "#f472b6"];
+                    return data.map((d, i) => {
+                      const angle = (d.users / total) * 2 * Math.PI;
+                      const endAngle = startAngle + angle;
+                      const x1 = 100 + 80 * Math.cos(startAngle);
+                      const y1 = 100 + 80 * Math.sin(startAngle);
+                      const x2 = 100 + 80 * Math.cos(endAngle);
+                      const y2 = 100 + 80 * Math.sin(endAngle);
+                      const largeArc = angle > Math.PI ? 1 : 0;
+                      const pathData = `M100,100 L${x1},${y1} A80,80 0 ${largeArc},1 ${x2},${y2} Z`;
+                      const slice = (
+                        <path key={d.month} d={pathData} fill={colors[i % colors.length]} opacity="0.85">
+                          <title>{`${d.month}: ${d.users} users`}</title>
+                        </path>
+                      );
+                      startAngle = endAngle;
+                      return slice;
+                    });
+                  })()}
+                  {/* Center circle for donut effect */}
+                  <circle cx="100" cy="100" r="45" fill="white" opacity="0.95" />
+                  {/* Month labels */}
+                  {comprehensiveAnalytics.monthlyGrowth.map((d, i) => {
+                    const angle = ((d.users / comprehensiveAnalytics.monthlyGrowth.reduce((sum, dd) => sum + dd.users, 0)) * Math.PI) + (i * Math.PI / 3);
+                    const x = 100 + 90 * Math.cos(angle);
+                    const y = 100 + 90 * Math.sin(angle);
+                    return (
+                      <text key={d.month} x={x} y={y} textAnchor="middle" fontSize="13" fill="#6b7280">{d.month}</text>
+                    );
+                  })}
+                </svg>
+                <div className="mt-4 text-xs text-gray-500 dark:text-gray-400 text-center">
+                  Pie chart shows user growth distribution by month. Colors adapt to light/dark mode.
+                </div>
               </div>
             </Card>
 

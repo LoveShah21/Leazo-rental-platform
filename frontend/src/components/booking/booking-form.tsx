@@ -524,8 +524,7 @@ export function BookingForm({ product }: BookingFormProps) {
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="razorpay">💳 Razorpay (UPI, Cards, Net Banking)</SelectItem>
-                <SelectItem value="stripe">🌐 Stripe (International Cards)</SelectItem>
+                <SelectItem value="razorpay">💳 CashFree Payments (UPI, Cards, Net Banking)</SelectItem>
                 <SelectItem value="cash">💵 Cash on Delivery</SelectItem>
               </SelectContent>
             </Select>

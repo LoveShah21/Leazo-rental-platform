@@ -35,13 +35,10 @@ export default function LoginPage() {
     }
   };
 
-  const handleDemoLogin = (role: string) => {
-    setDemoRole(role as any);
-    router.push("/dashboard");
-  };
+  // Demo access removed
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-100 dark:from-slate-900 dark:via-slate-800 dark:to-slate-900 relative overflow-hidden">
+    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-indigo-50 to-purple-100 dark:from-slate-900 dark:via-slate-800 dark:to-slate-900 relative overflow-hidden">
       {/* Animated Background Elements */}
       <div className="absolute inset-0 overflow-hidden">
         <div className="absolute -top-40 -right-40 w-80 h-80 bg-gradient-to-br from-blue-400/20 to-purple-600/20 rounded-full blur-3xl animate-pulse"></div>
@@ -70,18 +67,16 @@ export default function LoginPage() {
             <Card className="relative overflow-hidden border-0 shadow-2xl bg-white/80 dark:bg-slate-800/80 backdrop-blur-xl">
               <div className="absolute inset-0 bg-gradient-to-br from-blue-500/5 via-transparent to-purple-500/5" />
               <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-blue-500 via-purple-500 to-pink-500" />
-              
               <CardHeader className="relative pb-8">
-                <div>
-                  <CardTitle className="text-3xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
+                <div className="flex flex-col items-center">
+                  <CardTitle className="text-3xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent text-center">
                     Sign in to your account
                   </CardTitle>
-                  <CardDescription className="text-lg mt-2">
+                  <CardDescription className="text-lg mt-2 text-center">
                     Access your dashboard and manage your rentals with ease
                   </CardDescription>
                 </div>
               </CardHeader>
-              
               <CardContent className="relative">
                 <form className="space-y-6" onSubmit={onSubmit}>
                   <div className="space-y-2">
@@ -99,7 +94,6 @@ export default function LoginPage() {
                       required 
                     />
                   </div>
-                  
                   <div className="space-y-2">
                     <Label htmlFor="password" className="text-sm font-semibold flex items-center gap-2">
                       <Lock className="h-4 w-4 text-blue-500" />
@@ -130,13 +124,11 @@ export default function LoginPage() {
                       </Button>
                     </div>
                   </div>
-                  
                   {error && (
                     <div className="p-4 rounded-lg bg-red-50 border border-red-200 dark:bg-red-950/50 dark:border-red-800">
                       <p className="text-sm text-red-600 dark:text-red-400">{error}</p>
                     </div>
                   )}
-                  
                   <div className="space-y-4">
                     <Button 
                       type="submit" 
@@ -155,7 +147,6 @@ export default function LoginPage() {
                         </>
                       )}
                     </Button>
-                    
                     <div className="text-center">
                       <p className="text-sm text-gray-600 dark:text-gray-400">
                         Don't have an account?{" "}
@@ -170,55 +161,50 @@ export default function LoginPage() {
             </Card>
           </div>
 
-          {/* Demo Access */}
-          <Card className="relative overflow-hidden">
-            <div className="absolute inset-0 bg-gradient-to-br from-muted/10 via-transparent to-primary/5" />
-            <CardHeader className="relative">
-              <CardTitle className="text-2xl flex items-center gap-2">
-                <Sparkles className="h-5 w-5 text-primary" />
-                Quick Demo Access
-              </CardTitle>
-              <CardDescription>
-                Explore all dashboard features instantly with our demo accounts.
-              </CardDescription>
-            </CardHeader>
-            <CardContent className="relative space-y-4">
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <Button 
-                  variant="outline" 
-                  className="h-16 flex-col gap-2 hover:bg-blue-50 hover:border-blue-200 dark:hover:bg-blue-950"
-                  onClick={() => handleDemoLogin("customer")}
-                >
-                  <UserIcon className="h-5 w-5 text-blue-600" />
-                  <span className="font-medium">Customer</span>
-                </Button>
-                <Button 
-                  variant="outline" 
-                  className="h-16 flex-col gap-2 hover:bg-green-50 hover:border-green-200 dark:hover:bg-green-950"
-                  onClick={() => handleDemoLogin("provider")}
-                >
-                  <Building className="h-5 w-5 text-green-600" />
-                  <span className="font-medium">Provider</span>
-                </Button>
-                <Button 
-                  variant="outline" 
-                  className="h-16 flex-col gap-2 hover:bg-purple-50 hover:border-purple-200 dark:hover:bg-purple-950"
-                  onClick={() => handleDemoLogin("admin")}
-                >
-                  <Shield className="h-5 w-5 text-purple-600" />
-                  <span className="font-medium">Admin</span>
-                </Button>
-                <Button 
-                  variant="outline" 
-                  className="h-16 flex-col gap-2 hover:bg-orange-50 hover:border-orange-200 dark:hover:bg-orange-950"
-                  onClick={() => handleDemoLogin("super_admin")}
-                >
-                  <Crown className="h-5 w-5 text-orange-600" />
-                  <span className="font-medium">Super Admin</span>
-                </Button>
+          {/* Creative Right Side */}
+          <div className="space-y-8 hidden lg:block">
+            {/* Welcome Message */}
+            <div className="bg-white/60 dark:bg-slate-800/60 backdrop-blur-xl rounded-xl p-6 border border-white/20 shadow-lg">
+              <div className="flex items-center gap-3 mb-4">
+                <div className="p-3 bg-blue-100 dark:bg-blue-900/50 rounded-lg">
+                  <Shield className="h-6 w-6 text-blue-600 dark:text-blue-400" />
+                </div>
+                <div>
+                  <h3 className="text-lg font-semibold text-gray-900 dark:text-white">Welcome to Leazo!</h3>
+                  <p className="text-sm text-gray-600 dark:text-gray-400">Sign in to your account</p>
+                </div>
               </div>
-            </CardContent>
-          </Card>
+              <p className="text-sm text-gray-700 dark:text-gray-300">
+                Manage your rentals, track your bookings, and enjoy a seamless experience on our platform.
+              </p>
+            </div>
+
+            {/* Feature Highlights */}
+            <div className="bg-white/60 dark:bg-slate-800/60 backdrop-blur-xl rounded-xl p-6 border border-white/20 shadow-lg">
+              <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4 flex items-center gap-2">
+                <Sparkles className="h-5 w-5 text-purple-500" />
+                Why sign in?
+              </h3>
+              <div className="space-y-3">
+                <div className="flex items-center gap-3">
+                  <div className="w-2 h-2 bg-blue-500 rounded-full"></div>
+                  <span className="text-sm text-gray-700 dark:text-gray-300">Access your dashboard</span>
+                </div>
+                <div className="flex items-center gap-3">
+                  <div className="w-2 h-2 bg-purple-500 rounded-full"></div>
+                  <span className="text-sm text-gray-700 dark:text-gray-300">Track bookings and payments</span>
+                </div>
+                <div className="flex items-center gap-3">
+                  <div className="w-2 h-2 bg-pink-500 rounded-full"></div>
+                  <span className="text-sm text-gray-700 dark:text-gray-300">Get personalized recommendations</span>
+                </div>
+                <div className="flex items-center gap-3">
+                  <div className="w-2 h-2 bg-green-500 rounded-full"></div>
+                  <span className="text-sm text-gray-700 dark:text-gray-300">Enjoy secure and fast access</span>
+                </div>
+              </div>
+            </div>
+          </div>
         </div>
       </div>
     </div>

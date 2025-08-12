@@ -102,27 +102,7 @@ export default function ProviderDashboard() {
           )}
 
           {/* Demo Mode Notice */}
-          <Card className="border-0 shadow-lg bg-gradient-to-r from-green-50 to-teal-50 dark:from-green-900/20 dark:to-teal-900/20 backdrop-blur-sm">
-            <CardContent className="p-4">
-              <div className="flex flex-wrap items-center justify-between gap-4">
-                <div className="flex items-center gap-2">
-                  <Badge variant="outline" className="bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300">Provider Mode</Badge>
-                  <span className="text-sm text-muted-foreground">Switch between dashboard views</span>
-                </div>
-                <div className="flex flex-wrap gap-2">
-                  <Button size="sm" variant="outline" onClick={() => setDemo("customer")} className="hover:bg-blue-50 dark:hover:bg-blue-900/20">
-                    Switch to Customer
-                  </Button>
-                  <Button size="sm" variant="outline" onClick={() => setDemo("admin")} className="hover:bg-purple-50 dark:hover:bg-purple-900/20">
-                    Switch to Admin
-                  </Button>
-                  <Button size="sm" variant="outline" onClick={() => setDemo("super_admin")} className="hover:bg-pink-50 dark:hover:bg-pink-900/20">
-                    Switch to Super Admin
-                  </Button>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
+          
 
           {/* Stats Overview */}
           <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-5 gap-6">

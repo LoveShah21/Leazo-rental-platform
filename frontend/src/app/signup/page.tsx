@@ -21,24 +21,37 @@ export default function SignupPage() {
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirm, setShowConfirm] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [fieldErrors, setFieldErrors] = useState<{firstName?: string; lastName?: string; email?: string; password?: string; confirm?: string}>({});
+
+  const validateEmail = (email: string) => {
+    return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
+  };
 
   const onSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
-    if (password !== confirm) {
-      setError("Passwords do not match");
-      return;
-    }
-    if (password.length < 6) {
-      setError("Password must be at least 6 characters");
-      return;
-    }
+    const errors: typeof fieldErrors = {};
+    if (!firstName.trim()) errors.firstName = "First name is required";
+    if (!lastName.trim()) errors.lastName = "Last name is required";
+    if (!email.trim()) errors.email = "Email is required";
+    else if (!validateEmail(email)) errors.email = "Enter a valid email address";
+    if (!password) errors.password = "Password is required";
+    else if (password.length < 6) errors.password = "Password must be at least 6 characters";
+    if (!confirm) errors.confirm = "Please confirm your password";
+    else if (password !== confirm) errors.confirm = "Passwords do not match";
+    setFieldErrors(errors);
+    if (Object.keys(errors).length > 0) return;
     try {
       setLoading(true);
       await registerFn({ firstName, lastName, email, password });
       window.location.href = "/dashboard";
     } catch (err: any) {
-      setError(err.message || "Sign up failed");
+      // Show backend error under email if it's about email, else general
+      if (err.message && err.message.toLowerCase().includes("email")) {
+        setFieldErrors((prev) => ({ ...prev, email: err.message }));
+      } else {
+        setError(err.message || "Sign up failed");
+      }
     } finally { setLoading(false); }
   };
 
@@ -119,9 +132,12 @@ export default function SignupPage() {
                         value={firstName} 
                         onChange={(e) => setFirstName(e.target.value)} 
                         placeholder="John"
-                        className="h-12 border-2 focus:border-emerald-500 focus:ring-emerald-500/20 transition-all duration-200"
+                        className={`h-12 border-2 focus:border-emerald-500 focus:ring-emerald-500/20 transition-all duration-200 ${fieldErrors.firstName ? 'border-red-500' : ''}`}
                         required 
                       />
+                      {fieldErrors.firstName && (
+                        <div className="text-xs text-red-600 mt-1">{fieldErrors.firstName}</div>
+                      )}
                     </div>
                     <div className="space-y-2">
                       <Label htmlFor="lastName" className="text-sm font-semibold">Last name</Label>
@@ -130,9 +146,12 @@ export default function SignupPage() {
                         value={lastName} 
                         onChange={(e) => setLastName(e.target.value)} 
                         placeholder="Doe"
-                        className="h-12 border-2 focus:border-emerald-500 focus:ring-emerald-500/20 transition-all duration-200"
+                        className={`h-12 border-2 focus:border-emerald-500 focus:ring-emerald-500/20 transition-all duration-200 ${fieldErrors.lastName ? 'border-red-500' : ''}`}
                         required 
                       />
+                      {fieldErrors.lastName && (
+                        <div className="text-xs text-red-600 mt-1">{fieldErrors.lastName}</div>
+                      )}
                     </div>
                   </motion.div>
                   
@@ -152,9 +171,12 @@ export default function SignupPage() {
                       value={email} 
                       onChange={(e) => setEmail(e.target.value)} 
                       placeholder="john@example.com"
-                      className="h-12 border-2 focus:border-emerald-500 focus:ring-emerald-500/20 transition-all duration-200"
+                      className={`h-12 border-2 focus:border-emerald-500 focus:ring-emerald-500/20 transition-all duration-200 ${fieldErrors.email ? 'border-red-500' : ''}`}
                       required 
                     />
+                    {fieldErrors.email && (
+                      <div className="text-xs text-red-600 mt-1">{fieldErrors.email}</div>
+                    )}
                   </motion.div>
                   
                   <motion.div 
@@ -175,9 +197,12 @@ export default function SignupPage() {
                           value={password} 
                           onChange={(e) => setPassword(e.target.value)} 
                           placeholder="Create password"
-                          className="h-12 border-2 focus:border-emerald-500 focus:ring-emerald-500/20 transition-all duration-200 pr-10"
+                          className={`h-12 border-2 focus:border-emerald-500 focus:ring-emerald-500/20 transition-all duration-200 pr-10 ${fieldErrors.password ? 'border-red-500' : ''}`}
                           required 
                         />
+                        {fieldErrors.password && (
+                          <div className="text-xs text-red-600 mt-1">{fieldErrors.password}</div>
+                        )}
                         <Button
                           type="button"
                           variant="ghost"
@@ -210,9 +235,12 @@ export default function SignupPage() {
                           value={confirm} 
                           onChange={(e) => setConfirm(e.target.value)} 
                           placeholder="Confirm password"
-                          className="h-12 border-2 focus:border-emerald-500 focus:ring-emerald-500/20 transition-all duration-200 pr-10"
+                          className={`h-12 border-2 focus:border-emerald-500 focus:ring-emerald-500/20 transition-all duration-200 pr-10 ${fieldErrors.confirm ? 'border-red-500' : ''}`}
                           required 
                         />
+                        {fieldErrors.confirm && (
+                          <div className="text-xs text-red-600 mt-1">{fieldErrors.confirm}</div>
+                        )}
                         <Button
                           type="button"
                           variant="ghost"

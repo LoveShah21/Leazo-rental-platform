@@ -11,65 +11,105 @@ interface ChatbotIconProps {
 
 export function ChatbotIcon({ chatUrl = "https://chat.openai.com" }: ChatbotIconProps) {
   const [isHovered, setIsHovered] = useState(false);
+  const [open, setOpen] = useState(false);
 
   const handleChatClick = () => {
-    window.open(chatUrl, "_blank", "noopener,noreferrer");
+    setOpen(true);
   };
 
   return (
-    <motion.div
-      className="fixed bottom-6 right-6 z-50"
-      initial={{ scale: 0, opacity: 0 }}
-      animate={{ scale: 1, opacity: 1 }}
-      transition={{ duration: 0.3, delay: 0.5 }}
-    >
+    <>
       <motion.div
-        className="relative"
-        onHoverStart={() => setIsHovered(true)}
-        onHoverEnd={() => setIsHovered(false)}
-        whileHover={{ scale: 1.1 }}
-        whileTap={{ scale: 0.9 }}
+        className="fixed bottom-6 right-6 z-50"
+        initial={{ scale: 0, opacity: 0 }}
+        animate={{ scale: 1, opacity: 1 }}
+        transition={{ duration: 0.3, delay: 0.5 }}
       >
-        {/* Tooltip */}
-        <AnimatePresence>
-          {isHovered && (
-            <motion.div
-              initial={{ opacity: 0, x: 20, scale: 0.8 }}
-              animate={{ opacity: 1, x: 0, scale: 1 }}
-              exit={{ opacity: 0, x: 20, scale: 0.8 }}
-              transition={{ duration: 0.2 }}
-              className="absolute right-full mr-3 top-1/2 -translate-y-1/2 whitespace-nowrap"
-            >
-              <div className="bg-background border shadow-lg rounded-lg px-3 py-2 text-sm font-medium">
-                Need help? Chat with us!
-                <div className="absolute left-full top-1/2 -translate-y-1/2 w-0 h-0 border-l-4 border-l-background border-t-4 border-t-transparent border-b-4 border-b-transparent"></div>
-              </div>
-            </motion.div>
-          )}
-        </AnimatePresence>
-
-        {/* Chat Button */}
-        <Button
-          onClick={handleChatClick}
-          size="icon"
-          className="h-14 w-14 rounded-full bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 shadow-lg hover:shadow-xl transition-all duration-300 group"
+        <motion.div
+          className="relative"
+          onHoverStart={() => setIsHovered(true)}
+          onHoverEnd={() => setIsHovered(false)}
+          whileHover={{ scale: 1.1 }}
+          whileTap={{ scale: 0.9 }}
         >
-          <motion.div
-            animate={{ rotate: isHovered ? 360 : 0 }}
-            transition={{ duration: 0.3 }}
+          {/* Tooltip */}
+          <AnimatePresence>
+            {isHovered && (
+              <motion.div
+                initial={{ opacity: 0, x: 20, scale: 0.8 }}
+                animate={{ opacity: 1, x: 0, scale: 1 }}
+                exit={{ opacity: 0, x: 20, scale: 0.8 }}
+                transition={{ duration: 0.2 }}
+                className="absolute right-full mr-3 top-1/2 -translate-y-1/2 whitespace-nowrap"
+              >
+                <div className="bg-background border shadow-lg rounded-lg px-3 py-2 text-sm font-medium">
+                  Need help? Chat with us!
+                  <div className="absolute left-full top-1/2 -translate-y-1/2 w-0 h-0 border-l-4 border-l-background border-t-4 border-t-transparent border-b-4 border-b-transparent"></div>
+                </div>
+              </motion.div>
+            )}
+          </AnimatePresence>
+
+          {/* Chat Button */}
+          <Button
+            onClick={handleChatClick}
+            size="icon"
+            className="h-14 w-14 rounded-full bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 shadow-lg hover:shadow-xl transition-all duration-300 group"
+            aria-label="Open chatbot"
           >
-            <MessageCircle className="h-6 w-6 text-white group-hover:scale-110 transition-transform duration-200" />
-          </motion.div>
-          
-          {/* Pulse animation */}
-          <motion.div
-            className="absolute inset-0 rounded-full bg-gradient-to-r from-blue-600 to-purple-600 opacity-20"
-            animate={{ scale: [1, 1.2, 1], opacity: [0.2, 0, 0.2] }}
-            transition={{ duration: 2, repeat: Infinity, ease: "easeInOut" }}
-          />
-        </Button>
+            <motion.div
+              animate={{ rotate: isHovered ? 360 : 0 }}
+              transition={{ duration: 0.3 }}
+            >
+              <MessageCircle className="h-6 w-6 text-white group-hover:scale-110 transition-transform duration-200" />
+            </motion.div>
+            {/* Pulse animation */}
+            <motion.div
+              className="absolute inset-0 rounded-full bg-gradient-to-r from-blue-600 to-purple-600 opacity-20"
+              animate={{ scale: [1, 1.2, 1], opacity: [0.2, 0, 0.2] }}
+              transition={{ duration: 2, repeat: Infinity, ease: "easeInOut" }}
+            />
+          </Button>
+        </motion.div>
       </motion.div>
-    </motion.div>
+
+      {/* Chatbot Dialog/Modal */}
+      <AnimatePresence>
+        {open && (
+          <motion.div
+            initial={{ opacity: 0, scale: 0.9 }}
+            animate={{ opacity: 1, scale: 1 }}
+            exit={{ opacity: 0, scale: 0.9 }}
+            transition={{ duration: 0.2 }}
+            className="fixed inset-0 z-[100] flex items-end sm:items-center justify-center bg-black/40 backdrop-blur-sm"
+          >
+            <motion.div
+              initial={{ y: 50, opacity: 0 }}
+              animate={{ y: 0, opacity: 1 }}
+              exit={{ y: 50, opacity: 0 }}
+              transition={{ duration: 0.2 }}
+              className="relative w-full max-w-xs sm:max-w-md md:max-w-lg lg:max-w-xl h-[70vh] sm:h-[600px] bg-background rounded-xl shadow-2xl border flex flex-col"
+            >
+              <Button
+                size="icon"
+                variant="ghost"
+                className="absolute top-2 right-2 z-10"
+                onClick={() => setOpen(false)}
+                aria-label="Close chatbot"
+              >
+                <X className="h-5 w-5" />
+              </Button>
+              <iframe
+                src="https://app.fastbots.ai/embed/cme6robi103nlqm1kz36xsdey"
+                style={{ width: '100%', height: '100%', border: 'none', borderRadius: '0.75rem', background: 'transparent' }}
+                allow="clipboard-write"
+                title="Chatbot"
+              />
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </>
   );
 }
 
