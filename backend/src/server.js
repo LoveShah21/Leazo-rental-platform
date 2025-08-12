@@ -30,6 +30,7 @@ const reportRoutes = require('./routes/reports');
 const webhookRoutes = require('./routes/webhooks');
 const adminRoutes = require('./routes/admin');
 const providerRoutes = require('./routes/provider');
+const notificationRoutes = require('./routes/notifications');
 
 const app = express();
 const server = createServer(app);
@@ -137,6 +138,7 @@ app.use('/api/reports', reportRoutes);
 app.use('/api/admin', adminRoutes);
 app.use('/api/provider', providerRoutes);
 app.use('/api/webhooks', webhookRoutes);
+app.use('/api/notifications', notificationRoutes);
 
 // Error handling
 app.use(notFoundHandler);

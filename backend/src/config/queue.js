@@ -75,6 +75,16 @@ const processors = {
                 return await notificationService.sendSMS(data);
             case 'in_app_notification':
                 return await notificationService.createInAppNotification(data);
+            case 'run_all_checks':
+                return await notificationService.runAllChecks();
+            case 'late_fee_check':
+                return await notificationService.checkLateFees();
+            case 'low_stock_check':
+                return await notificationService.checkLowStock();
+            case 'pending_payment_check':
+                return await notificationService.checkPendingPayments();
+            case 'system_health_check':
+                return await notificationService.checkSystemHealth();
             default:
                 throw new Error(`Unknown notification type: ${type}`);
         }
@@ -285,6 +295,24 @@ const setupRecurringJobs = async () => {
     await queues.cleanup.add('temp_files', { type: 'temp_files', data: {} }, {
         repeat: { pattern: '0 2 * * *' },
         jobId: 'cleanup-temp-files'
+    });
+
+    // Run notification checks every 15 minutes
+    await queues.notifications.add('notification_checks', { type: 'run_all_checks', data: {} }, {
+        repeat: { pattern: '*/15 * * * *' },
+        jobId: 'notification-checks'
+    });
+
+    // Run late fee checks every hour
+    await queues.notifications.add('late_fee_checks', { type: 'late_fee_check', data: {} }, {
+        repeat: { pattern: '0 * * * *' },
+        jobId: 'late-fee-checks'
+    });
+
+    // Run low stock checks every 30 minutes
+    await queues.notifications.add('low_stock_checks', { type: 'low_stock_check', data: {} }, {
+        repeat: { pattern: '*/30 * * * *' },
+        jobId: 'low-stock-checks'
     });
 
     logger.info('Recurring jobs set up successfully');

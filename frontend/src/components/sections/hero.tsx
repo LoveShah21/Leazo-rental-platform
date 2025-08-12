@@ -43,6 +43,11 @@ export function Hero() {
               <Button variant="outline" size="lg" asChild>
                 <Link href="/how-it-works">How it Works</Link>
               </Button>
+              <Button variant="ghost" size="lg" asChild>
+                <Link href="/pricing" className="text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300">
+                  View Pricing
+                </Link>
+              </Button>
             </div>
 
             {/* Stats */}

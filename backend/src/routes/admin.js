@@ -338,7 +338,7 @@ router.get('/products', requireStaff, async (req, res, next) => {
             search,
             category,
             status,
-            sort = 'createdAt'
+            sort = 'created'
         } = req.query;
 
         const query = {};
@@ -351,7 +351,28 @@ router.get('/products', requireStaff, async (req, res, next) => {
         if (status) query.status = status;
 
         const skip = (parseInt(page) - 1) * parseInt(limit);
-        const sortQuery = { [sort]: -1 };
+        
+        // Map sort parameter to actual field names
+        let sortQuery = {};
+        switch (sort) {
+            case 'created':
+                sortQuery = { createdAt: -1 };
+                break;
+            case 'name':
+                sortQuery = { name: 1 };
+                break;
+            case 'price':
+                sortQuery = { 'pricing.basePrice.daily': 1 };
+                break;
+            case 'rating':
+                sortQuery = { 'rating.average': -1 };
+                break;
+            case 'popular':
+                sortQuery = { bookings: -1, views: -1 };
+                break;
+            default:
+                sortQuery = { createdAt: -1 };
+        }
 
         const [products, total] = await Promise.all([
             Product.find(query)

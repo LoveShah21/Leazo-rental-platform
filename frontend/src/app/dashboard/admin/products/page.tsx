@@ -26,7 +26,8 @@ import {
   MessageSquare,
   MoreHorizontal,
 } from "lucide-react";
-import { fetchAdminProducts, updateAdminProduct, type AdminProduct } from "@/lib/admin";
+import { fetchAdminProducts, fetchAllAdminProducts, updateAdminProduct, type AdminProduct } from "@/lib/admin";
+import { toast } from "@/components/ui/toaster";
 
 type StatusFilter = "all" | "active" | "inactive" | "draft" | "archived";
 
@@ -52,23 +53,39 @@ export default function AdminProductsPage() {
   const [error, setError] = useState<string | null>(null);
   const [items, setItems] = useState<AdminProduct[]>([]);
   const [pages, setPages] = useState(1);
+  const [loadAll, setLoadAll] = useState(false);
 
   async function load() {
     setLoading(true);
     try {
-      const res = await fetchAdminProducts({
-        page,
-        limit: 20,
-        search: searchTerm || undefined,
-        status: statusFilter !== "all" ? statusFilter : undefined,
-        category: categoryFilter !== "all" ? categoryFilter : undefined,
-        sort: "createdAt",
-      });
-      setItems(res.products);
-      setPages(res.pagination.pages);
+      if (loadAll) {
+        const all = await fetchAllAdminProducts({
+          page: 1,
+          limit: 200,
+          search: searchTerm || undefined,
+          status: statusFilter !== "all" ? statusFilter : undefined,
+          category: categoryFilter !== "all" ? categoryFilter : undefined,
+          sort: "created",
+        });
+        setItems(all);
+        setPages(1);
+      } else {
+        const res = await fetchAdminProducts({
+          page,
+          limit: 20,
+          search: searchTerm || undefined,
+          status: statusFilter !== "all" ? statusFilter : undefined,
+          category: categoryFilter !== "all" ? categoryFilter : undefined,
+          sort: "created",
+        });
+        setItems(res.products);
+        setPages(res.pagination.pages);
+      }
       setError(null);
     } catch (e: any) {
-      setError(e?.message || "Failed to load products");
+      const message = e?.message || "Failed to load products";
+      setError(message);
+      toast({ title: "Could not load products", description: message, variant: "destructive" });
     } finally {
       setLoading(false);
     }
@@ -77,7 +94,15 @@ export default function AdminProductsPage() {
   useEffect(() => {
     load();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [page]);
+  }, [page, loadAll]);
+
+  useEffect(() => {
+    if (loadAll) {
+      setPage(1);
+      load();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchTerm, statusFilter, categoryFilter, loadAll]);
 
   const stats = useMemo(
     () => ({
@@ -131,11 +156,23 @@ export default function AdminProductsPage() {
   });
 
   const handleAction = async (productId: string, action: string) => {
-    if (action === "approve") await updateAdminProduct(productId, { status: "active" });
-    if (action === "reject") await updateAdminProduct(productId, { status: "inactive" });
-    if (action === "suspend") await updateAdminProduct(productId, { status: "inactive" });
-    if (action === "reactivate") await updateAdminProduct(productId, { status: "active" });
-    await load();
+    try {
+      if (action === "approve") await updateAdminProduct(productId, { status: "active" });
+      if (action === "reject") await updateAdminProduct(productId, { status: "inactive" });
+      if (action === "suspend") await updateAdminProduct(productId, { status: "inactive" });
+      if (action === "reactivate") await updateAdminProduct(productId, { status: "active" });
+      await load();
+      const copy: Record<string, string> = {
+        approve: "Product approved",
+        reject: "Product rejected",
+        suspend: "Product suspended",
+        reactivate: "Product reactivated",
+      };
+      toast({ title: copy[action] || "Updated", variant: "success" });
+    } catch (e: any) {
+      const message = e?.message || "Failed to update product";
+      toast({ title: "Update failed", description: message, variant: "destructive" });
+    }
   };
 
   return (
@@ -257,42 +294,73 @@ export default function AdminProductsPage() {
                   Apply Filters
                 </Button>
               </div>
+              <div className="space-y-2 flex items-end">
+                <div className="flex gap-2 w-full">
+                  <Button variant={loadAll ? "default" : "outline"} className="w-1/2" onClick={() => { setLoadAll(true); setPage(1); }}>Load all</Button>
+                  <Button variant={!loadAll ? "default" : "outline"} className="w-1/2" onClick={() => { setLoadAll(false); setPage(1); }}>Paginated</Button>
+                </div>
+              </div>
             </div>
           </Card>
 
           {/* Error/Loading */}
           {error && <Card className="p-4 border-0 shadow-lg bg-red-50 text-red-700">{error}</Card>}
-          {loading && <Card className="p-6 border-0 shadow-lg">Loading...</Card>}
+          
+          {loading && (
+            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
+              {Array.from({ length: 9 }).map((_, index) => (
+                <Card key={index} className="border-0 shadow-lg bg-white/70 dark:bg-slate-800/70 backdrop-blur-sm">
+                  <div className="p-6">
+                    <div className="aspect-square w-full bg-gray-200 dark:bg-gray-700 rounded-lg mb-4 animate-pulse" />
+                    <div className="space-y-2">
+                      <div className="h-6 bg-gray-200 dark:bg-gray-700 rounded animate-pulse" />
+                      <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded animate-pulse" />
+                      <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-1/2 animate-pulse" />
+                    </div>
+                  </div>
+                </Card>
+              ))}
+            </div>
+          )}
 
           {/* Products Grid */}
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            {filteredProducts.map((product) => (
+          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
+            {items.map((product) => (
               <Card
                 key={product._id}
                 className="border-0 shadow-lg bg-white/70 dark:bg-slate-800/70 backdrop-blur-sm hover:shadow-xl transition-all duration-300"
               >
                 <div className="p-6">
-                  <div className="flex items-start justify-between mb-4">
-                    <div className="flex items-start space-x-4">
-                      <div className="w-16 h-16 bg-gradient-to-br from-gray-200 to-gray-300 dark:from-gray-700 dark:to-gray-600 rounded-lg flex items-center justify-center">
-                        <Package className="h-8 w-8 text-gray-500 dark:text-gray-400" />
-                      </div>
-                      <div className="flex-1">
-                        <div className="flex items-center space-x-2 mb-1">
-                          <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100">{product.name}</h3>
+                  {/* Product Image */}
+                  <div className="relative mb-4">
+                    <div className="aspect-square w-full bg-gradient-to-br from-gray-200 to-gray-300 dark:from-gray-700 dark:to-gray-600 rounded-lg overflow-hidden">
+                      {product.images && product.images.length > 0 ? (
+                        <img
+                          src={product.images[0].url}
+                          alt={product.name}
+                          className="w-full h-full object-cover"
+                        />
+                      ) : (
+                        <div className="w-full h-full flex items-center justify-center">
+                          <Package className="h-12 w-12 text-gray-400 dark:text-gray-500" />
                         </div>
-                        <p className="text-sm text-gray-600 dark:text-gray-300">
-                          {product.owner ? `${product.owner.firstName ?? ""} ${product.owner.lastName ?? ""}`.trim() : ""}
-                        </p>
-                        <p className="text-xs text-gray-500 dark:text-gray-400">{product.category}</p>
-                      </div>
+                      )}
                     </div>
-                    <div className="flex items-center space-x-2">
+                    <div className="absolute top-2 right-2">
                       <Badge className={getStatusBadge(product.status)}>
                         {getStatusIcon(product.status)}
                         <span className="ml-1">{product.status.replace("_", " ")}</span>
                       </Badge>
                     </div>
+                  </div>
+
+                  {/* Product Info */}
+                  <div className="space-y-2 mb-4">
+                    <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100 line-clamp-2">{product.name}</h3>
+                    <p className="text-sm text-gray-600 dark:text-gray-300">
+                      {product.owner ? `${product.owner.firstName ?? ""} ${product.owner.lastName ?? ""}`.trim() : "Unknown Owner"}
+                    </p>
+                    <p className="text-xs text-gray-500 dark:text-gray-400 capitalize">{product.category}</p>
                   </div>
 
                   <p className="text-sm text-gray-600 dark:text-gray-300 mb-4 line-clamp-2">&nbsp;</p>
@@ -394,7 +462,7 @@ export default function AdminProductsPage() {
             ))}
           </div>
 
-          {filteredProducts.length === 0 && (
+          {items.length === 0 && (
             <Card className="p-8 border-0 shadow-lg bg-white/70 dark:bg-slate-800/70 backdrop-blur-sm text-center">
               <Package className="h-12 w-12 text-gray-400 dark:text-gray-500 mx-auto mb-4" />
               <h3 className="text-lg font-medium text-gray-900 dark:text-gray-100 mb-2">No products found</h3>
@@ -402,14 +470,16 @@ export default function AdminProductsPage() {
             </Card>
           )}
 
-          <div className="flex items-center justify-end gap-2">
-            <Button variant="outline" size="sm" disabled={page <= 1} onClick={() => setPage((p) => Math.max(1, p - 1))}>
-              Prev
-            </Button>
-            <Button variant="outline" size="sm" disabled={page >= pages} onClick={() => setPage((p) => Math.min(pages, p + 1))}>
-              Next
-            </Button>
-          </div>
+          {!loadAll && (
+            <div className="flex items-center justify-end gap-2">
+              <Button variant="outline" size="sm" disabled={page <= 1} onClick={() => setPage((p) => Math.max(1, p - 1))}>
+                Prev
+              </Button>
+              <Button variant="outline" size="sm" disabled={page >= pages} onClick={() => setPage((p) => Math.min(pages, p + 1))}>
+                Next
+              </Button>
+            </div>
+          )}
         </div>
       </DashboardLayout>
     </Protected>

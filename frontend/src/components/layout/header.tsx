@@ -6,7 +6,8 @@ import { Button } from "@/components/ui/button";
 import { CartDrawer } from "@/components/cart/cart-drawer";
 import { useCartStore } from "@/store/cart";
 import { NavigationLoader, useNavigationLoader } from "@/components/ui/navigation-loader";
-import { Search, ShoppingCart, User, Menu, X, Sun, Moon, LogIn, LogOut, LayoutGrid, Sparkles, Leaf, Clock, Bell } from "lucide-react";
+import { Search, ShoppingCart, User, Menu, X, Sun, Moon, LogIn, LogOut, LayoutGrid, Sparkles, Leaf, Clock, Bell, Star } from "lucide-react";
+import { NotificationBell } from "@/components/ui/notification-bell";
 import { useTheme } from "next-themes";
 import { motion, AnimatePresence } from "framer-motion";
 import { useAuth } from "@/components/auth-provider";
@@ -41,6 +42,12 @@ export function Header() {
       href: "/how-it-works", 
       icon: Clock,
       description: "Simple rental process"
+    },
+    { 
+      name: "Pricing", 
+      href: "/pricing", 
+      icon: Star,
+      description: "Choose your plan"
     },
     { 
       name: "Sustainability", 
@@ -149,6 +156,11 @@ export function Header() {
                 <div className="absolute -inset-2 bg-gradient-to-r from-yellow-600/20 to-blue-600/20 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity duration-200 -z-10"></div>
               </Button>
             </motion.div>
+
+            {/* Notification Bell */}
+            {user && (
+              <NotificationBell className="hidden sm:block" />
+            )}
 
             {/* Cart */}
             <motion.div
