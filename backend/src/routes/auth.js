@@ -75,12 +75,13 @@ const generateTokens = (user) => {
         role: user.role
     };
 
+    // Tokens have very long expiration - only expire on explicit logout
     const accessToken = jwt.sign(payload, process.env.JWT_ACCESS_SECRET, {
-        expiresIn: process.env.JWT_ACCESS_EXPIRES_IN || '15m'
+        expiresIn: process.env.JWT_ACCESS_EXPIRES_IN || '30d' // 30 days
     });
 
     const refreshToken = jwt.sign(payload, process.env.JWT_REFRESH_SECRET, {
-        expiresIn: process.env.JWT_REFRESH_EXPIRES_IN || '7d'
+        expiresIn: process.env.JWT_REFRESH_EXPIRES_IN || '90d' // 90 days
     });
 
     return { accessToken, refreshToken };
@@ -289,7 +290,6 @@ router.post('/login', loginLimiter, validateInput(loginSchema), async (req, res,
                 }
             }
         });
-
     } catch (error) {
         next(error);
     }
@@ -347,7 +347,7 @@ router.post('/refresh', validateInput(refreshTokenSchema), async (req, res, next
 
 /**
  * @route   POST /api/auth/logout
- * @desc    Logout user
+ * @desc    Logout user (invalidate tokens)
  * @access  Private
  */
 router.post('/logout', authenticate, async (req, res, next) => {
@@ -356,13 +356,21 @@ router.post('/logout', authenticate, async (req, res, next) => {
         const token = req.token;
 
         // Remove refresh token from Redis
-        await cache.del(`refresh_token:${userId}`);
+        try {
+            await cache.del(`refresh_token:${userId}`);
+        } catch (cacheError) {
+            logger.warn('Failed to remove refresh token from cache:', cacheError.message);
+        }
 
         // Blacklist the current access token
-        const decoded = jwt.decode(token);
-        const expiresIn = decoded.exp - Math.floor(Date.now() / 1000);
-        if (expiresIn > 0) {
-            await cache.set(`blacklist:${token}`, true, expiresIn);
+        try {
+            const decoded = jwt.decode(token);
+            const expiresIn = decoded.exp - Math.floor(Date.now() / 1000);
+            if (expiresIn > 0) {
+                await cache.set(`blacklist:${token}`, true, expiresIn);
+            }
+        } catch (cacheError) {
+            logger.warn('Failed to blacklist token:', cacheError.message);
         }
 
         logger.info(`User logged out: ${req.user.email}`);

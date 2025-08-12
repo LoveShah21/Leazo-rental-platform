@@ -4,7 +4,6 @@ import "./globals.css";
 import { Providers } from "@/components/providers";
 import { Toaster } from "@/components/ui/toaster";
 import { AuthProvider } from "@/components/auth-provider";
-import { ChatbotIcon } from "@/components/ui/chatbot-icon";
 
 const inter = Inter({ subsets: ["latin"] });
 
@@ -29,7 +28,6 @@ export default function RootLayout({
           <AuthProvider>
             {children}
             <Toaster />
-            <ChatbotIcon />
           </AuthProvider>
         </Providers>
       </body>

@@ -1,6 +1,6 @@
 # Frontend notes
 
-- Added AuthProvider with role-based protection (customer, provider, staff, manager, admin, super_admin).
+- Auth now uses utilities in `src/lib/auth.ts` with `useSimpleAuth`, `authFetch`, and a lightweight `Protected` component for role-based access.
 - New pages:
   - /login
   - /dashboard (auto-redirects by role)

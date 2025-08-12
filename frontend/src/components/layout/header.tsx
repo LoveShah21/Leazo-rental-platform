@@ -10,13 +10,13 @@ import { Search, ShoppingCart, User, Menu, X, Sun, Moon, LogIn, LogOut, LayoutGr
 import { NotificationBell } from "@/components/ui/notification-bell";
 import { useTheme } from "next-themes";
 import { motion, AnimatePresence } from "framer-motion";
-import { useAuth } from "@/components/auth-provider";
+import { useSimpleAuth, logout as logoutFn } from "@/lib/auth";
 
 export function Header() {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [scrolled, setScrolled] = useState(false);
   const { theme, setTheme } = useTheme();
-  const { user, logout } = useAuth();
+  const { user } = useSimpleAuth();
   const { getItemCount, toggleCart } = useCartStore();
   const { isLoading, navigateWithLoader } = useNavigationLoader();
   const itemCount = getItemCount();
@@ -63,7 +63,7 @@ export function Header() {
   };
 
   const handleLogout = async () => {
-    await logout();
+    await logoutFn();
     window.location.href = "/";
   };
 

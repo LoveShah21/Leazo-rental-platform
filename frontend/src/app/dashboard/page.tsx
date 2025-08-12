@@ -1,14 +1,14 @@
 "use client";
 
 import { useEffect } from "react";
-import { useAuth } from "@/components/auth-provider";
+import { useSimpleAuth } from "@/lib/auth";
 import { useRouter } from "next/navigation";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { PageHeader } from "@/components/layout/page-header";
 
 export default function DashboardIndex() {
-  const { user, loading, setDemo } = useAuth();
+  const { user, loading, setDemo } = useSimpleAuth();
   const router = useRouter();
 
   useEffect(() => {
