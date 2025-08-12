@@ -1,6 +1,6 @@
 "use client";
 
-import { Protected, useAuth } from "@/components/auth-provider";
+import { Protected, useSimpleAuth } from "@/lib/auth";
 import { DashboardLayout } from "@/components/layout/dashboard-layout";
 import Link from "next/link";
 import { PageHeader } from "@/components/layout/page-header";
@@ -25,8 +25,7 @@ import { useEffect, useMemo, useState } from "react";
 import { fetchProviderDashboard, fetchProviderProfile, type ProviderDashboard } from "@/lib/provider";
 
 export default function ProviderDashboard() {
-  const { setDemo } = useAuth();
-  const { user } = useAuth();
+  const { setDemo, user } = useSimpleAuth();
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [dashboard, setDashboard] = useState<ProviderDashboard | null>(null);

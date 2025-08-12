@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { Protected, useAuth } from "@/components/auth-provider";
+import { Protected } from "@/lib/auth";
 import { DashboardLayout } from "@/components/layout/dashboard-layout";
 import { PageHeader } from "@/components/layout/page-header";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -85,7 +85,7 @@ async function updateUserProfile(userData: any) {
 }
 
 export default function CustomerProfilePage() {
-  const { user: authUser, getToken } = useAuth();
+  // Using token utilities directly now; user is derived from Protected/useSimpleAuth
   const { toast } = useToast();
   const queryClient = useQueryClient();
   const [isEditing, setIsEditing] = useState(false);
@@ -101,7 +101,7 @@ export default function CustomerProfilePage() {
   const { data: profileData, isLoading, error } = useQuery({
     queryKey: ['user-profile'],
     queryFn: fetchUserProfile,
-    enabled: !!authUser,
+    enabled: true,
     retry: (failureCount, error) => {
       if (error.message.includes('Authentication required')) {
         return false;

@@ -1,6 +1,6 @@
 ﻿"use client";
 import { useEffect, useMemo, useState } from "react";
-import { Protected } from "@/components/auth-provider";
+import { Protected } from "@/lib/auth";
 import { DashboardLayout } from "@/components/layout/dashboard-layout";
 import { PageHeader } from "@/components/layout/page-header";
 import { Card } from "@/components/ui/card";

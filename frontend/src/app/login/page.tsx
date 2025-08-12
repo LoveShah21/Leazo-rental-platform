@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { useAuth } from "@/components/auth-provider";
+import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -9,23 +9,35 @@ import { Label } from "@/components/ui/label";
 import { PageHeader } from "@/components/layout/page-header";
 import Link from "next/link";
 import { Shield, User as UserIcon, Building, Crown, Sparkles, ArrowRight, Eye, EyeOff } from "lucide-react";
+import { login, setDemoRole } from "@/lib/auth";
 
 export default function LoginPage() {
-  const { login, loading, setDemo } = useAuth();
+  const router = useRouter();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [loading, setLoading] = useState(false);
 
   const onSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
+    setLoading(true);
+    
     try {
       await login(email, password);
-      window.location.href = "/dashboard";
+      // Redirect to dashboard after successful login
+      router.push("/dashboard");
     } catch (err: any) {
       setError(err.message || "Login failed");
+    } finally {
+      setLoading(false);
     }
+  };
+
+  const handleDemoLogin = (role: string) => {
+    setDemoRole(role as any);
+    router.push("/dashboard");
   };
 
   return (
@@ -144,7 +156,7 @@ export default function LoginPage() {
                 <Button 
                   variant="outline" 
                   className="h-16 flex-col gap-2 hover:bg-blue-50 hover:border-blue-200 dark:hover:bg-blue-950"
-                  onClick={() => { setDemo("customer"); window.location.href = "/dashboard"; }}
+                  onClick={() => handleDemoLogin("customer")}
                 >
                   <UserIcon className="h-5 w-5 text-blue-600" />
                   <span className="font-medium">Customer</span>
@@ -152,7 +164,7 @@ export default function LoginPage() {
                 <Button 
                   variant="outline" 
                   className="h-16 flex-col gap-2 hover:bg-green-50 hover:border-green-200 dark:hover:bg-green-950"
-                  onClick={() => { setDemo("provider"); window.location.href = "/dashboard"; }}
+                  onClick={() => handleDemoLogin("provider")}
                 >
                   <Building className="h-5 w-5 text-green-600" />
                   <span className="font-medium">Provider</span>
@@ -160,7 +172,7 @@ export default function LoginPage() {
                 <Button 
                   variant="outline" 
                   className="h-16 flex-col gap-2 hover:bg-purple-50 hover:border-purple-200 dark:hover:bg-purple-950"
-                  onClick={() => { setDemo("admin"); window.location.href = "/dashboard"; }}
+                  onClick={() => handleDemoLogin("admin")}
                 >
                   <Shield className="h-5 w-5 text-purple-600" />
                   <span className="font-medium">Admin</span>
@@ -168,7 +180,7 @@ export default function LoginPage() {
                 <Button 
                   variant="outline" 
                   className="h-16 flex-col gap-2 hover:bg-orange-50 hover:border-orange-200 dark:hover:bg-orange-950"
-                  onClick={() => { setDemo("super_admin"); window.location.href = "/dashboard"; }}
+                  onClick={() => handleDemoLogin("super_admin")}
                 >
                   <Crown className="h-5 w-5 text-orange-600" />
                   <span className="font-medium">Super Admin</span>

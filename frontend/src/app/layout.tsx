@@ -3,7 +3,7 @@ import { Inter } from "next/font/google";
 import "./globals.css";
 import { Providers } from "@/components/providers";
 import { Toaster } from "@/components/ui/toaster";
-import { AuthProvider } from "@/components/auth-provider";
+// Removed legacy AuthProvider; using lightweight auth in lib/auth
 
 const inter = Inter({ subsets: ["latin"] });
 
@@ -25,10 +25,8 @@ export default function RootLayout({
     <html lang="en" suppressHydrationWarning>
       <body className={inter.className}>
         <Providers>
-          <AuthProvider>
-            {children}
-            <Toaster />
-          </AuthProvider>
+          {children}
+          <Toaster />
         </Providers>
       </body>
     </html>

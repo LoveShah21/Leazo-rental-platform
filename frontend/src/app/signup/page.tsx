@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { useAuth } from "@/components/auth-provider";
+import { register as registerFn } from "@/lib/auth";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -11,7 +11,7 @@ import Link from "next/link";
 import { Sparkles, ArrowRight, Eye, EyeOff, CheckCircle, User, Mail, Lock } from "lucide-react";
 
 export default function SignupPage() {
-  const { register, loading } = useAuth();
+  const [loading, setLoading] = useState(false);
   const [firstName, setFirstName] = useState("");
   const [lastName, setLastName] = useState("");
   const [email, setEmail] = useState("");
@@ -33,11 +33,12 @@ export default function SignupPage() {
       return;
     }
     try {
-      await register({ firstName, lastName, email, password });
+      setLoading(true);
+      await registerFn({ firstName, lastName, email, password });
       window.location.href = "/dashboard";
     } catch (err: any) {
       setError(err.message || "Sign up failed");
-    }
+    } finally { setLoading(false); }
   };
 
   const passwordsMatch = password && confirm && password === confirm;

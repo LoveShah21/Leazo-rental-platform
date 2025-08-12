@@ -1,6 +1,6 @@
 "use client";
 
-import { Protected, useAuth } from "@/components/auth-provider";
+import { Protected, useSimpleAuth } from "@/lib/auth";
 import { DashboardLayout } from "@/components/layout/dashboard-layout";
 import Link from "next/link";
 import { PageHeader } from "@/components/layout/page-header";
@@ -12,7 +12,7 @@ import { useEffect, useMemo, useState } from "react";
 import { fetchAdminDashboard } from "@/lib/admin";
 
 export default function AdminDashboard() {
-  const { setDemo } = useAuth();
+  const { setDemo } = useSimpleAuth();
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [period] = useState("30d");

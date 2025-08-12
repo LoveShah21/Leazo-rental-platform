@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { useAuth } from "@/components/auth-provider";
+import { useSimpleAuth } from "@/lib/auth";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -11,7 +11,7 @@ import Link from "next/link";
 import { Shield, User as UserIcon, Building, Crown, Sparkles } from "lucide-react";
 
 export default function LoginPage() {
-  const { login, loading, setDemo } = useAuth();
+  const { login, loading, setDemo } = useSimpleAuth();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -12,10 +12,10 @@ import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { useToast } from "@/components/ui/toaster";
-import { useAuth } from "@/components/auth-provider";
+import { useSimpleAuth, getAccessToken } from "@/lib/auth";
 import { API_BASE_URL } from "@/lib/api";
 import { formatCurrency, cn } from "@/lib/utils";
-import { CalendarIcon, CreditCard, Package, MapPin, Loader2, CheckCircle } from "lucide-react";
+import { CalendarIcon, CreditCard, Package, MapPin, Loader2, CheckCircle, User } from "lucide-react";
 import { format, addDays, differenceInDays } from "date-fns";
 
 interface BookingFormProps {
@@ -23,7 +23,7 @@ interface BookingFormProps {
 }
 
 export function BookingForm({ product }: BookingFormProps) {
-  const { user, getToken } = useAuth();
+  const { user } = useSimpleAuth();
   const { toast } = useToast();
   const queryClient = useQueryClient();
 
@@ -40,11 +40,22 @@ export function BookingForm({ product }: BookingFormProps) {
     postalCode: ''
   });
   const [contactPerson, setContactPerson] = useState({
-    name: user?.firstName + ' ' + user?.lastName || '',
+    name: user?.firstName && user?.lastName ? `${user.firstName} ${user.lastName}` : user?.firstName || user?.email?.split('@')[0] || 'Customer',
     phone: user?.phone || '',
     email: user?.email || ''
   });
   const [notes, setNotes] = useState('');
+
+  // Update contact person when user data changes
+  useEffect(() => {
+    if (user) {
+      setContactPerson({
+        name: user.firstName && user.lastName ? `${user.firstName} ${user.lastName}` : user.firstName || user.email?.split('@')[0] || 'Customer',
+        phone: user.phone || '',
+        email: user.email || ''
+      });
+    }
+  }, [user]);
 
   // Calculate pricing
   const rentalDays = startDate && endDate ? differenceInDays(endDate, startDate) + 1 : 0;
@@ -57,7 +68,7 @@ export function BookingForm({ product }: BookingFormProps) {
   // Create booking mutation
   const createBookingMutation = useMutation({
     mutationFn: async (bookingData: any) => {
-      const token = getToken();
+      const token = getAccessToken();
       
       if (!token) {
         throw new Error('Authentication token not found. Please log in again.');
@@ -73,8 +84,22 @@ export function BookingForm({ product }: BookingFormProps) {
       });
 
       if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error?.message || errorData.message || 'Failed to create booking');
+        const errorData = await response.json().catch(() => ({}));
+        console.error('Booking creation failed:', {
+          status: response.status,
+          statusText: response.statusText,
+          errorData,
+          requestData: bookingData
+        });
+        
+        // Handle validation errors specifically
+        if (response.status === 400 && errorData.error?.message === 'Validation Error') {
+          const validationErrors = errorData.error?.details || errorData.error?.errors || [];
+          const errorMessages = validationErrors.map((err: any) => err.message || err.msg).join(', ');
+          throw new Error(`Validation failed: ${errorMessages}`);
+        }
+        
+        throw new Error(errorData.error?.message || errorData.message || `Failed to create booking (${response.status})`);
       }
 
       return response.json();
@@ -123,7 +148,7 @@ export function BookingForm({ product }: BookingFormProps) {
       return;
     }
 
-    const token = getToken();
+    const token = getAccessToken();
     if (!token) {
       toast({
         title: "Authentication Error",
@@ -151,6 +176,29 @@ export function BookingForm({ product }: BookingFormProps) {
       return;
     }
 
+    // Validate product data
+    if (!product._id) {
+      toast({
+        title: "Product Error",
+        description: "Product information is incomplete. Please try again.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    // Check if product has inventory or location
+    const hasInventory = product.inventory && product.inventory.length > 0;
+    const hasLocation = product.locationId || (hasInventory && product.inventory[0]?.locationId);
+    
+    if (!hasInventory && !hasLocation) {
+      toast({
+        title: "Product Unavailable",
+        description: "This product is not available for booking at the moment.",
+        variant: "destructive",
+      });
+      return;
+    }
+
     if (deliveryType === 'delivery' && !deliveryAddress.street) {
       toast({
         title: "Delivery Address Required",
@@ -160,15 +208,39 @@ export function BookingForm({ product }: BookingFormProps) {
       return;
     }
 
+    // Enhanced delivery address validation
+    if (deliveryType === 'delivery') {
+      const requiredFields = ['street', 'city', 'state', 'postalCode'];
+      const missingFields = requiredFields.filter(field => !deliveryAddress[field as keyof typeof deliveryAddress]);
+      
+      if (missingFields.length > 0) {
+        toast({
+          title: "Incomplete Delivery Address",
+          description: `Please fill in: ${missingFields.join(', ')}`,
+          variant: "destructive",
+        });
+        return;
+      }
+    }
+
     const bookingData = {
       productId: product._id,
-      locationId: product.inventory?.[0]?.locationId,
+      locationId: product.inventory?.[0]?.locationId || product.locationId || product.location?._id,
       quantity,
       startDate: startDate.toISOString(),
       endDate: endDate.toISOString(),
       paymentMethod,
       delivery: {
         type: deliveryType,
+        ...(deliveryType === 'pickup' && {
+          pickupAddress: {
+            street: product.location?.address?.street || product.inventory?.[0]?.location?.address?.street || 'Pickup Location',
+            city: product.location?.address?.city || product.inventory?.[0]?.location?.address?.city || 'City',
+            state: product.location?.address?.state || product.inventory?.[0]?.location?.address?.state || 'State',
+            country: product.location?.address?.country || product.inventory?.[0]?.location?.address?.country || 'Country',
+            postalCode: product.location?.address?.postalCode || product.inventory?.[0]?.location?.address?.postalCode || '00000'
+          }
+        }),
         ...(deliveryType === 'delivery' && { 
           deliveryAddress: {
             street: deliveryAddress.street,
@@ -179,16 +251,91 @@ export function BookingForm({ product }: BookingFormProps) {
           }
         }),
         contactPerson: {
-          name: contactPerson.name,
-          phone: contactPerson.phone,
-          email: contactPerson.email
+          name: contactPerson.name || `${user.firstName || ''} ${user.lastName || ''}`.trim() || 'Customer',
+          phone: contactPerson.phone || user.phone || '0000000000',
+          email: contactPerson.email || user.email || 'customer@example.com'
         }
       },
       notes: {
-        customer: notes
+        customer: notes || ''
       }
     };
 
+    // Validate required fields before sending
+    if (!bookingData.locationId) {
+      console.error('Product data for debugging:', {
+        productId: product._id,
+        inventory: product.inventory,
+        locationId: product.locationId,
+        location: product.location
+      });
+      
+      // Try to create a default location if none exists
+      if (product.inventory && product.inventory.length > 0) {
+        // Use the first inventory item's location if available
+        const firstInventory = product.inventory[0];
+        if (firstInventory.locationId) {
+          bookingData.locationId = firstInventory.locationId;
+          console.log('Using inventory location:', firstInventory.locationId);
+        } else if (firstInventory.location && firstInventory.location._id) {
+          bookingData.locationId = firstInventory.location._id;
+          console.log('Using inventory location object:', firstInventory.location._id);
+        }
+      }
+      
+      // If still no location, try to use product location
+      if (!bookingData.locationId && product.location && product.location._id) {
+        bookingData.locationId = product.location._id;
+        console.log('Using product location:', product.location._id);
+      }
+      
+      // Final check - if no location found, show error
+      if (!bookingData.locationId) {
+        toast({
+          title: "Location Required",
+          description: "Product location information is missing. Please try again or contact support.",
+          variant: "destructive",
+        });
+        return;
+      }
+    }
+
+    if (!contactPerson.name || !contactPerson.phone || !contactPerson.email) {
+      const missingFields = [];
+      if (!contactPerson.name || contactPerson.name.trim() === '') missingFields.push('Name');
+      if (!contactPerson.phone || contactPerson.phone.trim() === '') missingFields.push('Phone');
+      if (!contactPerson.email || contactPerson.email.trim() === '') missingFields.push('Email');
+      
+      toast({
+        title: "Contact Information Required",
+        description: `Please provide: ${missingFields.join(', ')}`,
+        variant: "destructive",
+      });
+      return;
+    }
+
+    // Validate email format
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (!emailRegex.test(contactPerson.email)) {
+      toast({
+        title: "Invalid Email",
+        description: "Please provide a valid email address.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    // Validate phone format (basic validation)
+    if (contactPerson.phone.length < 10) {
+      toast({
+        title: "Invalid Phone",
+        description: "Please provide a valid phone number (at least 10 digits).",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    console.log('Sending booking data:', bookingData);
     createBookingMutation.mutate(bookingData);
   };
 
@@ -394,6 +541,48 @@ export function BookingForm({ product }: BookingFormProps) {
               onChange={(e) => setNotes(e.target.value)}
               rows={3}
             />
+          </div>
+
+          {/* Contact Information */}
+          <div className="space-y-4 p-4 border rounded-lg bg-muted/30">
+            <h4 className="font-medium flex items-center gap-2">
+              <User className="h-4 w-4" />
+              Contact Information
+            </h4>
+            <div className="space-y-3">
+              <div className="space-y-2">
+                <Label htmlFor="contactName">Full Name *</Label>
+                <Input
+                  id="contactName"
+                  placeholder="Your full name"
+                  value={contactPerson.name}
+                  onChange={(e) => setContactPerson({...contactPerson, name: e.target.value})}
+                  required
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="contactPhone">Phone Number *</Label>
+                <Input
+                  id="contactPhone"
+                  type="tel"
+                  placeholder="Your phone number"
+                  value={contactPerson.phone}
+                  onChange={(e) => setContactPerson({...contactPerson, phone: e.target.value})}
+                  required
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="contactEmail">Email Address *</Label>
+                <Input
+                  id="contactEmail"
+                  type="email"
+                  placeholder="Your email address"
+                  value={contactPerson.email}
+                  onChange={(e) => setContactPerson({...contactPerson, email: e.target.value})}
+                  required
+                />
+              </div>
+            </div>
           </div>
 
           {/* Pricing Summary */}
